@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "market-watch-dashboard"
+version = "0.1.0"
+description = "Local-first market dashboard built with Dash and defeatbeta-api"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "dash>=2.18.2",
+  "pandas>=2.2.3",
+  "plotly>=5.24.1",
+  "PyYAML>=6.0.2",
+  "defeatbeta-api",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3.4",
+]
+
+[tool.setuptools]
+packages = [
+  "app",
+  "app.components",
+  "app.data",
+  "app.pages",
+  "app.services",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
