@@ -1,6 +1,6 @@
 # market_watch
 
-Local-first KISS portfolio dashboard built with Plotly Dash and `defeatbeta-api`.
+Local-first KISS portfolio terminal built with Plotly Dash and `defeatbeta-api`.
 
 ## What This App Does
 
@@ -11,6 +11,14 @@ This app is no longer a generic market watch dashboard. It is an implementation-
 - what is the actually implemented portfolio after VAMS scaling
 - what changed since the prior update in the current app session
 - what should be implemented now
+
+The current UI is intentionally visual-first:
+
+- the home page is a portfolio state board
+- allocation is shown as aligned base / target / actual bands
+- regime is shown as a growth / inflation quadrant
+- sleeve state is shown through cards, gauges, chips, and change rails
+- text is secondary to charts, bars, and signal encoding
 
 The default sleeves are:
 
@@ -107,11 +115,11 @@ Portfolio construction lives in [app/services/kiss_portfolio.py](/Users/mattfalt
 
 ## Routes
 
-- `/`: KISS Overview. Current regime, target allocation, actual allocation, implementation status, sleeve table, and action summary.
-- `/implementation`: target vs actual portfolio construction with allocation visuals and sleeve-level gaps.
-- `/signals`: regime diagnostics and sleeve-level VAMS diagnostics.
-- `/market-watch`: supporting macro and market context page. This is secondary to the KISS implementation view.
-- `/ticker/<symbol>`: detail page for configured sleeves and supported symbols.
+- `/`: KISS Overview. Tactical portfolio state board with regime quadrant, allocation bands, sleeve state cards, and current implementation cues.
+- `/implementation`: visual allocation workspace for target vs actual construction, gaps, and execution state.
+- `/signals`: chart-first regime diagnostics and sleeve-level VAMS diagnostics.
+- `/market-watch`: supporting macro telemetry wall. This is secondary to the KISS implementation view.
+- `/ticker/<symbol>`: visual intelligence panel for configured sleeves and supported symbols.
 
 ## Run
 
@@ -150,6 +158,7 @@ The config loader is defined in [app/config.py](/Users/mattfaltyn/Desktop/hypert
 - Portfolio deltas are only computed against the previous snapshot held in memory during the current app session.
 - There is no persisted history, rebalance ledger, or trade execution integration in v1.
 - The macro regime and VAMS methodologies are approximate and explainable local proxies, not a claim of exact proprietary 42 Macro replication.
+- The UI intentionally keeps `dash_table.DataTable` as a secondary audit surface, but the product is designed to be understood visually before reading detailed text.
 
 ## Development
 

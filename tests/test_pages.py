@@ -1,10 +1,10 @@
 import pandas as pd
 
-from app.components.ui import fatal_error_page, make_table
+from app.components.ui import allocation_band, delta_strip, fatal_error_page, macro_quadrant, make_table, sleeve_state_card
 from app.main import _should_force_refresh
 from app.models import AlertFlag, KissPortfolioSnapshot, KissRegime, SignalChange, SleeveAllocation, TickerDetailBundle, VamsSignal
 from app.pages.implementation import render_implementation
-from app.pages.overview import render_kiss_overview
+from app.pages.overview import _proxy_scores, render_kiss_overview
 from app.pages.signals import render_signals
 from app.pages.ticker_detail import render_ticker_detail
 
@@ -91,3 +91,31 @@ def test_fatal_error_page_renders():
 def test_table_formats_numeric_values():
     table = make_table(pd.DataFrame({"return_1d": [0.0123], "close": [1234.567]}))
     assert table is not None
+
+
+def test_allocation_band_renders():
+    component = allocation_band([0.6, 0.3, 0.1], [0.6, 0.15, 0.1], [0.3, 0.3, 0.05], ["SPY", "AGG", "BTC-USD"])
+    assert component is not None
+
+
+def test_macro_quadrant_renders():
+    component = macro_quadrant("goldilocks", 0.2, -0.1, None)
+    assert component is not None
+
+
+def test_sleeve_state_card_renders():
+    allocation = SleeveAllocation("equity", "SPY", 0.6, 0.6, 0.3, "neutral", 0.5, "Goldilocks", 0.0)
+    signal = VamsSignal("SPY", "neutral", 0.1, 0.2, 0.15, 0.05, None, ["Mixed trend"])
+    component = sleeve_state_card(allocation, signal)
+    assert component is not None
+
+
+def test_delta_strip_renders():
+    component = delta_strip([SignalChange("BTC-USD", "actual_weight", "0.0%", "5.0%", "BTC moved")])
+    assert component is not None
+
+
+def test_proxy_scores_keep_growth_and_inflation_separate():
+    growth_score, inflation_score = _proxy_scores(_sample_snapshot())
+    assert growth_score == 0.2
+    assert inflation_score == -0.1

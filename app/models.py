@@ -14,6 +14,17 @@ class MetricCard:
     delta: str | None = None
     tone: str = "neutral"
     variant: str = "kpi"
+    icon: str | None = None
+    sparkline: list[float] | None = None
+    emphasis: str = "normal"
+
+
+@dataclass(frozen=True)
+class VisualChangeEvent:
+    label: str
+    value: str
+    tone: str = "neutral"
+    caption: str | None = None
 
 
 @dataclass(frozen=True)
