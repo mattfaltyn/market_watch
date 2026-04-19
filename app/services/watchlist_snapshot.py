@@ -111,7 +111,7 @@ def build_watchlist_snapshot(client, tickers: list[str], benchmark: str, thresho
     return pd.DataFrame(rows)
 
 
-def get_ticker_detail(client, symbol: str, alerts, force_refresh: bool = False) -> TickerDetailBundle:
+def get_ticker_detail(client, symbol: str, alerts, force_refresh: bool = False, role_label: str | None = None) -> TickerDetailBundle:
     info = client.get_info(symbol, force_refresh=force_refresh)
     price = client.get_prices(symbol, force_refresh=force_refresh)
     news = client.get_news(symbol, force_refresh=force_refresh)
@@ -154,4 +154,5 @@ def get_ticker_detail(client, symbol: str, alerts, force_refresh: bool = False) 
         transcripts=transcripts.data,
         alerts=alerts,
         errors=errors,
+        role_label=role_label,
     )

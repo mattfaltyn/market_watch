@@ -1,15 +1,28 @@
 import pandas as pd
 
-from app.components.ui import allocation_band, delta_strip, fatal_error_page, macro_quadrant, make_table, sleeve_state_card
+from app.components.ui import allocation_band, fatal_error_page, macro_quadrant, make_table, sleeve_state_card, transition_strip
 from app.main import _should_force_refresh
-from app.models import AlertFlag, KissPortfolioSnapshot, KissRegime, SignalChange, SleeveAllocation, TickerDetailBundle, VamsSignal
+from app.models import (
+    AlertFlag,
+    ConfirmationSnapshot,
+    IndicatorSnapshot,
+    KissPortfolioSnapshot,
+    KissRegime,
+    RegimeHistoryPoint,
+    RegimeOverviewSnapshot,
+    SignalChange,
+    SignalTransition,
+    SleeveAllocation,
+    TickerDetailBundle,
+    VamsSignal,
+)
 from app.pages.implementation import render_implementation
-from app.pages.overview import _proxy_scores, render_kiss_overview
+from app.pages.overview import render_regime_overview
 from app.pages.signals import render_signals
 from app.pages.ticker_detail import render_ticker_detail
 
 
-def _sample_snapshot() -> KissPortfolioSnapshot:
+def _portfolio_snapshot() -> KissPortfolioSnapshot:
     regime = KissRegime(
         regime="goldilocks",
         regime_strength=0.42,
@@ -37,23 +50,67 @@ def _sample_snapshot() -> KissPortfolioSnapshot:
     )
 
 
-def test_kiss_overview_renders():
-    layout = render_kiss_overview(_sample_snapshot(), [])
+def _regime_snapshot() -> RegimeOverviewSnapshot:
+    regime = KissRegime(
+        regime="goldilocks",
+        regime_strength=0.42,
+        hybrid_label=None,
+        growth_direction="up",
+        inflation_direction="down",
+        component_scores={
+            "equity_trend": 0.2,
+            "cyclical_defensive_ratio": 0.1,
+            "copper_gold_ratio": 0.3,
+            "oil_trend": -0.1,
+            "commodity_trend": -0.05,
+            "yield_trend": -0.15,
+        },
+        as_of=None,
+        reasons=["Growth proxies are trending up.", "Inflation proxies are trending down."],
+    )
+    return RegimeOverviewSnapshot(
+        regime=regime,
+        regime_history=[
+            RegimeHistoryPoint(None, "reflation", 0.05, 0.08, 0.07),
+            RegimeHistoryPoint(None, "goldilocks", 0.20, -0.10, 0.15),
+        ],
+        indicators=[
+            IndicatorSnapshot("SPY", 500.0, 0.01, 0.03, 0.08, "above_50d", 0.15, None),
+            IndicatorSnapshot("BTC-USD", 90000.0, 0.02, 0.05, 0.12, "above_50d", 0.45, None),
+            IndicatorSnapshot("USO", 80.0, -0.01, -0.02, 0.04, "below_50d", 0.25, None),
+            IndicatorSnapshot("DBC", 25.0, 0.01, 0.02, 0.06, "above_50d", 0.18, None),
+            IndicatorSnapshot("GLD", 220.0, -0.01, -0.01, 0.02, "above_50d", 0.14, None),
+            IndicatorSnapshot("QQQ", 450.0, 0.01, 0.04, 0.09, "above_50d", 0.17, None),
+            IndicatorSnapshot("IWM", 210.0, 0.00, 0.02, 0.05, "above_50d", 0.22, None),
+            IndicatorSnapshot("10Y", 0.043, None, 0.001, -0.002, "down", None, None),
+            IndicatorSnapshot("10Y-2Y", 0.005, None, None, None, "steepening", None, None),
+        ],
+        confirmations=[
+            ConfirmationSnapshot("SPY", "Equity confirmation", "bullish", 0.4, 0.2, 0.2, 0.15, SignalTransition("SPY", "neutral", "bullish", None, 3, "SPY changed neutral -> bullish 3 trading days ago."), None),
+            ConfirmationSnapshot("AGG", "Bond confirmation", "neutral", 0.1, 0.05, 0.03, 0.12, SignalTransition("AGG", "neutral", "neutral", None, 8, "AGG has remained neutral for 8 trading days."), None),
+            ConfirmationSnapshot("BTC-USD", "Risk appetite confirmation", "bullish", 0.5, 0.3, 0.25, 0.45, SignalTransition("BTC-USD", "neutral", "bullish", None, 2, "BTC-USD changed neutral -> bullish 2 trading days ago."), None),
+        ],
+        transitions=[
+            SignalTransition("Regime", "reflation", "goldilocks", None, 1, "Regime changed reflation -> goldilocks 1 trading day ago."),
+            SignalTransition("BTC-USD", "neutral", "bullish", None, 2, "BTC-USD changed neutral -> bullish 2 trading days ago."),
+        ],
+        as_of=None,
+        summary_text="Goldilocks regime with growth up and inflation down.",
+    )
+
+
+def test_regime_overview_renders():
+    layout = render_regime_overview(_regime_snapshot(), [])
     assert layout is not None
 
 
 def test_implementation_page_renders():
-    layout = render_implementation(_sample_snapshot(), [])
+    layout = render_implementation(_portfolio_snapshot(), [])
     assert layout is not None
 
 
 def test_signals_page_renders():
-    regime = _sample_snapshot().regime
-    vams_signals = {
-        "SPY": VamsSignal("SPY", "neutral", 0.1, 0.2, 0.15, 0.05, None, ["Mixed trend"]),
-        "AGG": VamsSignal("AGG", "bullish", 0.4, 0.1, 0.2, 0.2, None, ["Positive trend"]),
-    }
-    layout = render_signals(regime, vams_signals, [])
+    layout = render_signals(_regime_snapshot(), [])
     assert layout is not None
 
 
@@ -70,8 +127,9 @@ def test_ticker_detail_renders():
         calendar=pd.DataFrame(),
         revenue_breakdown={"segment": pd.DataFrame(), "geography": pd.DataFrame()},
         transcripts=pd.DataFrame(),
-        alerts=[AlertFlag("SPY", "allocation", "SPY actual weight moved higher", "high")],
+        alerts=[AlertFlag("SPY", "allocation", "SPY regime confirmation is strong", "high")],
         errors=[],
+        role_label="Equity confirmation",
     )
     layout = render_ticker_detail(bundle)
     assert layout is not None
@@ -110,12 +168,6 @@ def test_sleeve_state_card_renders():
     assert component is not None
 
 
-def test_delta_strip_renders():
-    component = delta_strip([SignalChange("BTC-USD", "actual_weight", "0.0%", "5.0%", "BTC moved")])
+def test_transition_strip_renders():
+    component = transition_strip([SignalTransition("Regime", "reflation", "goldilocks", None, 1, "Regime changed yesterday.")])
     assert component is not None
-
-
-def test_proxy_scores_keep_growth_and_inflation_separate():
-    growth_score, inflation_score = _proxy_scores(_sample_snapshot())
-    assert growth_score == 0.2
-    assert inflation_score == -0.1

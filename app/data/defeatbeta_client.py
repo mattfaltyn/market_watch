@@ -97,6 +97,23 @@ class DefeatBetaClient:
             result[f"return_{lookback}d"] = close / close.shift(lookback) - 1.0
         return DataResult(data=result, errors=price_result.errors)
 
+    def get_price_ratio_history(self, symbol_a: str, symbol_b: str, force_refresh: bool = False) -> DataResult:
+        left = self.get_prices(symbol_a, force_refresh=force_refresh)
+        right = self.get_prices(symbol_b, force_refresh=force_refresh)
+        errors = left.errors + right.errors
+        if left.data.empty or right.data.empty:
+            return DataResult(data=pd.DataFrame(), errors=errors)
+        merged = left.data[["report_date", "close"]].merge(
+            right.data[["report_date", "close"]],
+            on="report_date",
+            suffixes=("_a", "_b"),
+            how="inner",
+        ).sort_values("report_date")
+        if merged.empty:
+            return DataResult(data=pd.DataFrame(), errors=errors)
+        merged["ratio"] = pd.to_numeric(merged["close_a"], errors="coerce") / pd.to_numeric(merged["close_b"], errors="coerce")
+        return DataResult(data=merged[["report_date", "ratio"]].dropna(), errors=errors)
+
     def get_yield_series(self, force_refresh: bool = False) -> DataResult:
         return self.get_treasury_yields(force_refresh=force_refresh)
 

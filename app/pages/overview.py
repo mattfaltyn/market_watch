@@ -1,161 +1,143 @@
 from __future__ import annotations
 
-from dash import html
 import pandas as pd
+from dash import html
 
 from app.components.ui import (
-    SLEEVE_COLORS,
-    allocation_band,
     app_shell,
     badge,
-    delta_strip,
+    benchmark_card,
     error_box,
-    exposure_gauge,
     heatstrip,
     macro_quadrant,
-    make_table,
     metric_card,
     section_panel,
-    sleeve_state_card,
+    signal_meter,
     stat_chip,
+    transition_strip,
 )
-from app.models import KissPortfolioSnapshot, MetricCard, VamsSignal
+from app.models import IndicatorSnapshot, MetricCard, RegimeOverviewSnapshot
 
 
-def _proxy_scores(snapshot: KissPortfolioSnapshot) -> tuple[float, float]:
-    growth_keys = [key for key in snapshot.regime.component_scores if key in {"equity_trend", "cyclical_defensive_ratio", "copper_gold_ratio"}]
-    inflation_keys = [key for key in snapshot.regime.component_scores if key in {"oil_trend", "commodity_trend", "yield_trend"}]
-    growth_score = sum(snapshot.regime.component_scores[key] for key in growth_keys) / max(1, len(growth_keys))
-    inflation_score = sum(snapshot.regime.component_scores[key] for key in inflation_keys) / max(1, len(inflation_keys))
-    return float(growth_score), float(inflation_score)
+def _indicator_map(snapshot: RegimeOverviewSnapshot) -> dict[str, IndicatorSnapshot]:
+    return {indicator.symbol: indicator for indicator in snapshot.indicators}
 
 
-def _latest_signal_caption(snapshot: KissPortfolioSnapshot) -> str:
-    if not snapshot.signal_changes:
-        return "NO CHANGE"
-    change = snapshot.signal_changes[0]
-    return f"{change.symbol} {change.field.replace('_', ' ').upper()}"
-
-
-def _action_items(snapshot: KissPortfolioSnapshot) -> list[str]:
-    items: list[str] = []
-    for sleeve in snapshot.sleeves:
-        gap = sleeve.target_weight - sleeve.actual_weight
-        if gap > 0:
-            items.append(f"Increase {sleeve.symbol} to {sleeve.target_weight:.0%}")
-        elif gap < 0:
-            items.append(f"Trim {sleeve.symbol} to {sleeve.target_weight:.0%}")
-        else:
-            items.append(f"Hold {sleeve.symbol} at {sleeve.actual_weight:.0%}")
-    items.append(f"Keep {snapshot.cash_weight:.0%} in {snapshot.cash_symbol}")
-    return items[:4]
-
-
-def _table_frame(snapshot: KissPortfolioSnapshot) -> pd.DataFrame:
-    rows = [
-        {
-            "Sleeve": sleeve.symbol,
-            "Base": sleeve.base_weight,
-            "Target": sleeve.target_weight,
-            "Actual": sleeve.actual_weight,
-            "Delta": sleeve.delta_from_prior,
-            "VAMS": sleeve.vams_state.upper(),
-        }
-        for sleeve in snapshot.sleeves
-    ]
-    rows.append({"Sleeve": snapshot.cash_symbol, "Base": 0.0, "Target": 0.0, "Actual": snapshot.cash_weight, "Delta": None, "VAMS": "CASH"})
-    return pd.DataFrame(rows)
-
-
-def render_kiss_overview(snapshot: KissPortfolioSnapshot, errors: list[str]):
-    growth_score, inflation_score = _proxy_scores(snapshot)
-
-    labels = [s.symbol for s in snapshot.sleeves] + [snapshot.cash_symbol]
-    base = [s.base_weight for s in snapshot.sleeves] + [0.0]
-    target = [s.target_weight for s in snapshot.sleeves] + [0.0]
-    actual = [s.actual_weight for s in snapshot.sleeves] + [snapshot.cash_weight]
-
-    kpis = [
-        MetricCard("Regime", snapshot.regime.regime.title(), f"Strength {snapshot.regime.regime_strength:.2f}", tone="market", icon="◫", emphasis="high"),
-        MetricCard("Gross Exposure", f"{snapshot.gross_exposure:.0%}", "Risk allocated", tone="positive" if snapshot.gross_exposure >= 0.6 else "warning", icon="◎", sparkline=[0.3, 0.5, snapshot.gross_exposure]),
-        MetricCard("Cash", f"{snapshot.cash_weight:.0%}", snapshot.cash_symbol, tone="warning" if snapshot.cash_weight > 0.2 else "positive", icon="◌", sparkline=[0.5, 0.4, snapshot.cash_weight]),
-        MetricCard("Latest Event", _latest_signal_caption(snapshot), snapshot.signal_changes[0].message if snapshot.signal_changes else "Stable session", tone="warning", icon="↻"),
-        MetricCard("Action", "IMPLEMENT", snapshot.implementation_text.split(";")[0], tone="market", icon="→"),
-    ]
-
-    sleeve_cards = [sleeve_state_card(sleeve, VamsSignal(sleeve.symbol, sleeve.vams_state, 0.0, None, None, None, snapshot.as_of, [])) for sleeve in snapshot.sleeves]
-    cash_sleeve = snapshot.sleeves[0]
-    sleeve_cards.append(
-        sleeve_state_card(
-            type(cash_sleeve)(
-                name="cash",
-                symbol=snapshot.cash_symbol,
-                base_weight=0.0,
-                target_weight=0.0,
-                actual_weight=snapshot.cash_weight,
-                vams_state="neutral",
-                vams_multiplier=1.0,
-                regime_rule_applied=snapshot.regime.regime.title(),
-                delta_from_prior=None,
-            ),
-            VamsSignal(snapshot.cash_symbol, "neutral", 0.0, None, None, None, snapshot.as_of, []),
+def _benchmark_tiles(snapshot: RegimeOverviewSnapshot) -> list[html.Div]:
+    indicators = _indicator_map(snapshot)
+    symbols = ["SPY", "QQQ", "IWM", "BTC-USD", "GLD", "USO", "DBC"]
+    tiles = []
+    for symbol in symbols:
+        indicator = indicators.get(symbol)
+        if indicator is None:
+            continue
+        delta = (
+            f"1D {indicator.change_1d:+.1%} | 1M {indicator.change_1m:+.1%}"
+            if indicator.change_1d is not None and indicator.change_1m is not None
+            else "Insufficient history"
         )
+        tone = "positive" if (indicator.change_1d or 0.0) >= 0 else "negative"
+        price = f"{indicator.latest_value:,.2f}" if indicator.latest_value is not None else "Unavailable"
+        tiles.append(benchmark_card(symbol, price, delta, tone))
+    return tiles
+
+
+def _change_items(snapshot: RegimeOverviewSnapshot) -> list[html.Div]:
+    indicators = _indicator_map(snapshot)
+    notable = []
+    for symbol in ["SPY", "BTC-USD", "USO", "DBC", "10Y", "10Y-2Y"]:
+        indicator = indicators.get(symbol)
+        if indicator is None:
+            continue
+        label = "1D" if indicator.change_1d is not None else "5D"
+        change = indicator.change_1d if indicator.change_1d is not None else indicator.change_5d
+        if change is None:
+            continue
+        notable.append((symbol, label, change))
+    notable = sorted(notable, key=lambda item: abs(item[2]), reverse=True)[:4]
+    return [
+        html.Div(
+            className="action-item",
+            children=f"{symbol} {label} {change:+.1%}",
+        )
+        for symbol, label, change in notable
+    ]
+
+
+def render_regime_overview(snapshot: RegimeOverviewSnapshot, errors: list[str]):
+    regime = snapshot.regime
+    regime_transition = next((transition for transition in snapshot.transitions if transition.label == "Regime"), None)
+    kpis = [
+        MetricCard("Current Regime", regime.regime.title(), f"Strength {regime.regime_strength:.2f}", tone="market", icon="◫", emphasis="high"),
+        MetricCard("Last Regime Flip", regime_transition.current_state.title() if regime_transition else regime.regime.title(), regime_transition.caption if regime_transition else "No transition history", tone="positive", icon="↺"),
+        MetricCard("Growth", regime.growth_direction.title(), f"Score {next((point.growth_score for point in snapshot.regime_history[-1:]), 0.0):+.2f}", tone="positive" if regime.growth_direction == "up" else "negative", icon="↑"),
+        MetricCard("Inflation", regime.inflation_direction.title(), f"Score {next((point.inflation_score for point in snapshot.regime_history[-1:]), 0.0):+.2f}", tone="warning" if regime.inflation_direction == "up" else "positive", icon="↕"),
+    ]
+
+    growth_score = snapshot.regime_history[-1].growth_score if snapshot.regime_history else 0.0
+    inflation_score = snapshot.regime_history[-1].inflation_score if snapshot.regime_history else 0.0
+
+    confirmation_cards = []
+    for confirmation in snapshot.confirmations:
+        confirmation_cards.append(
+            html.Div(
+                className=f"sleeve-card tone-{confirmation.state if confirmation.state != 'neutral' else 'neutral_state'}",
+                children=[
+                    html.Div(className="sleeve-head", children=[html.Div(confirmation.symbol, className="sleeve-symbol"), badge(confirmation.state.upper(), confirmation.state)]),
+                    html.Div(confirmation.role_label, className="terminal-caption"),
+                    signal_meter(confirmation.score, -1.0, 1.0, "Score", "market" if confirmation.score >= 0 else "negative"),
+                    signal_meter(confirmation.trend or 0.0, -1.0, 1.0, "Trend", "market" if (confirmation.trend or 0.0) >= 0 else "negative"),
+                    signal_meter(confirmation.momentum or 0.0, -1.0, 1.0, "Momentum", "market" if (confirmation.momentum or 0.0) >= 0 else "negative"),
+                    html.Div(confirmation.last_transition.caption if confirmation.last_transition else "No transition history", className="terminal-caption"),
+                ],
+            )
+        )
+
+    growth_heat = heatstrip(
+        [regime.component_scores.get("equity_trend", 0.0), regime.component_scores.get("cyclical_defensive_ratio", 0.0), regime.component_scores.get("copper_gold_ratio", 0.0)],
+        ["EQUITY", "CYCLICAL", "COPPER/GOLD"],
+    )
+    inflation_heat = heatstrip(
+        [regime.component_scores.get("oil_trend", 0.0), regime.component_scores.get("commodity_trend", 0.0), regime.component_scores.get("yield_trend", 0.0)],
+        ["OIL", "COMMODITY", "10Y YIELD"],
     )
 
     return app_shell(
         [
             error_box(errors),
-            html.Div(className="kpi-strip", children=[metric_card(card) for card in kpis]),
+            html.Div(className="four-col", children=[metric_card(card) for card in kpis]),
             html.Div(
                 className="hero-grid",
                 children=[
                     section_panel(
-                        "Macro State",
+                        "Regime Quadrant",
                         [
-                            macro_quadrant(snapshot.regime.regime, growth_score, inflation_score, snapshot.regime.hybrid_label),
-                            heatstrip(
-                                list(snapshot.regime.component_scores.values()),
-                                [key.replace("_", " ").upper() for key in snapshot.regime.component_scores.keys()],
-                            ),
+                            macro_quadrant(regime.regime, growth_score, inflation_score, regime.hybrid_label),
+                            html.Div(className="chip-row", children=[badge(regime.growth_direction.upper(), "positive"), badge(regime.inflation_direction.upper(), "rates"), stat_chip("Market Tone", regime.regime.title(), "market")]),
                         ],
-                        subtitle="Growth / inflation quadrant",
+                        subtitle="Current macro environment",
                     ),
                     section_panel(
-                        "Implemented Allocation",
+                        "What Changed",
                         [
-                            html.Div(className="status-rail", children=[
-                                exposure_gauge(snapshot.gross_exposure, "Gross"),
-                                exposure_gauge(snapshot.cash_weight, "Cash", tone="warning"),
-                            ]),
-                            allocation_band(base, target, actual, labels, SLEEVE_COLORS),
-                            html.Div(className="chip-row", children=[badge(snapshot.regime.growth_direction.upper(), "positive"), badge(snapshot.regime.inflation_direction.upper(), "rates"), stat_chip("Action", "LIVE", "market")]),
+                            transition_strip(snapshot.transitions),
+                            html.Div(className="action-list", children=_change_items(snapshot)),
                         ],
-                        subtitle="Base / target / actual",
+                        subtitle="Historical transitions and recent moves",
                     ),
                 ],
             ),
-            section_panel("Sleeve State Board", html.Div(className="sleeve-grid", children=sleeve_cards), subtitle="Target, actual, VAMS, delta"),
+            section_panel("Indicator Tape", [html.Div(className="chart-wall", children=_benchmark_tiles(snapshot))], subtitle="Key KISS market indicators"),
+            section_panel("Confirmation", [html.Div(className="signal-grid", children=confirmation_cards)], subtitle="VAMS used as confirmation, not sizing"),
             html.Div(
                 className="two-col",
                 children=[
-                    section_panel("Change Rail", [delta_strip(snapshot.signal_changes)], subtitle="Current session events"),
-                    section_panel(
-                        "Action Now",
-                        [
-                            html.Div(className="action-list", children=[html.Div(item, className="action-item") for item in _action_items(snapshot)]),
-                            html.Div(snapshot.summary_text, className="terminal-caption"),
-                        ],
-                        subtitle="Implementation cues",
-                    ),
+                    section_panel("Growth Drivers", [growth_heat], subtitle="Regime inputs"),
+                    section_panel("Inflation Drivers", [inflation_heat], subtitle="Regime inputs"),
                 ],
             ),
-            section_panel(
-                "Audit Table",
-                [make_table(_table_frame(snapshot), numeric_columns=["Base", "Target", "Actual", "Delta"])],
-                subtitle="Secondary numeric view",
-            ),
         ],
-        page_title="Portfolio state board for the current KISS regime.",
-        active_page="kiss-overview",
-        status_meta={"as_of": snapshot.as_of, "scope": snapshot.regime.regime.title()},
+        page_title="Regime, drivers, transitions, and confirming assets.",
+        active_page="regime",
+        status_meta={"as_of": snapshot.as_of, "scope": regime.regime.title()},
     )

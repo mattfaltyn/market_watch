@@ -67,6 +67,7 @@ def render_ticker_detail(bundle: TickerDetailBundle):
                             html.Div(
                                 className="meta-row",
                                 children=[
+                                    badge(bundle.role_label or "Indicator", "positive"),
                                     badge(str(info.get("sector", "Sector unavailable")), "market"),
                                     badge(str(info.get("industry", "Industry unavailable")), "neutral"),
                                     badge(f"{len(bundle.alerts)} alerts", alert_tone),
@@ -110,7 +111,7 @@ def render_ticker_detail(bundle: TickerDetailBundle):
             ),
             section_panel("Transcript Grid", [make_table(bundle.transcripts.head(20))], subtitle="Availability and dates"),
         ],
-        page_title=f"{bundle.symbol} visual intelligence panel.",
+        page_title=f"{bundle.symbol} regime intelligence panel.",
         active_page="ticker",
         status_meta={"scope": bundle.symbol},
     )

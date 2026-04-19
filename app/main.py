@@ -9,12 +9,13 @@ from app.data.cache import FileCache
 from app.data.defeatbeta_client import CachePolicy, DefeatBetaClient
 from app.pages.implementation import render_implementation
 from app.pages.market_watch import render_market_watch
-from app.pages.overview import render_kiss_overview
+from app.pages.overview import render_regime_overview
 from app.pages.signals import render_signals
 from app.pages.ticker_detail import render_ticker_detail
 from app.services.market_snapshot import build_market_snapshot, build_rates_snapshot
 from app.services.kiss_portfolio import build_kiss_portfolio_snapshot
 from app.services.kiss_regime import get_kiss_regime
+from app.services.regime_history import build_regime_overview_snapshot
 from app.services.signals import get_alert_flags
 from app.services.vams import get_vams_signals
 from app.services.watchlist_snapshot import build_watchlist_snapshot, get_ticker_detail
@@ -77,15 +78,6 @@ def create_app() -> dash.Dash:
         force_refresh = _should_force_refresh(dash.ctx.triggered_id, refresh_state)
         try:
             errors: list[str] = []
-            regime = get_kiss_regime(CLIENT, CONFIG, force_refresh=force_refresh)
-            vams_signals = get_vams_signals(
-                CLIENT,
-                [CONFIG.sleeves["equity"], CONFIG.sleeves["fixed_income"], CONFIG.sleeves["bitcoin"]],
-                CONFIG.alert_thresholds,
-                force_refresh=force_refresh,
-            )
-            kiss_snapshot = build_kiss_portfolio_snapshot(regime, vams_signals, CONFIG)
-
             if pathname and pathname.startswith("/ticker/"):
                 symbol = pathname.split("/")[-1].upper()
                 allowed_symbols = set(CONFIG.market_watch_symbols + CONFIG.sleeve_symbols)
@@ -98,13 +90,27 @@ def create_app() -> dash.Dash:
                 watchlist = build_watchlist_snapshot(CLIENT, [symbol], CONFIG.sleeves["equity"], CONFIG.alert_thresholds, force_refresh=force_refresh)
                 rate_snapshot = build_rates_snapshot(CLIENT, force_refresh=force_refresh)
                 flags = get_alert_flags(symbol, watchlist.iloc[0] if not watchlist.empty else {}, rate_snapshot, CONFIG.alert_thresholds)
-                bundle = get_ticker_detail(CLIENT, symbol, flags, force_refresh=force_refresh)
+                role_map = {
+                    CONFIG.sleeves["equity"]: "Equity confirmation",
+                    CONFIG.sleeves["fixed_income"]: "Bond confirmation",
+                    CONFIG.sleeves["bitcoin"]: "Risk appetite confirmation",
+                }
+                bundle = get_ticker_detail(CLIENT, symbol, flags, force_refresh=force_refresh, role_label=role_map.get(symbol))
                 return render_ticker_detail(bundle)
 
             if pathname == "/implementation":
+                regime = get_kiss_regime(CLIENT, CONFIG, force_refresh=force_refresh)
+                vams_signals = get_vams_signals(
+                    CLIENT,
+                    [CONFIG.sleeves["equity"], CONFIG.sleeves["fixed_income"], CONFIG.sleeves["bitcoin"]],
+                    CONFIG.alert_thresholds,
+                    force_refresh=force_refresh,
+                )
+                kiss_snapshot = build_kiss_portfolio_snapshot(regime, vams_signals, CONFIG)
                 return render_implementation(kiss_snapshot, errors)
+            regime_snapshot = build_regime_overview_snapshot(CLIENT, CONFIG, force_refresh=force_refresh)
             if pathname == "/signals":
-                return render_signals(regime, vams_signals, errors)
+                return render_signals(regime_snapshot, errors)
 
             if pathname == "/market-watch":
                 rates = build_rates_snapshot(CLIENT, force_refresh=force_refresh)
@@ -114,7 +120,7 @@ def create_app() -> dash.Dash:
                 indicator_frame = __import__("pandas").DataFrame({"symbol": CONFIG.market_watch_symbols})
                 return render_market_watch(market, rates, indicator_frame, sp500_history_result.data, errors)
 
-            return render_kiss_overview(kiss_snapshot, errors)
+            return render_regime_overview(regime_snapshot, errors)
         except Exception as exc:  # pragma: no cover - callback boundary
             return fatal_error_page(
                 title="Unable to load market data",

@@ -28,6 +28,16 @@ class VisualChangeEvent:
 
 
 @dataclass(frozen=True)
+class SignalTransition:
+    label: str
+    prior_state: str
+    current_state: str
+    transition_date: datetime | None
+    age_days: int | None
+    caption: str
+
+
+@dataclass(frozen=True)
 class MarketIndexSnapshot:
     symbol: str
     close: float | None
@@ -87,6 +97,40 @@ class KissRegime:
 
 
 @dataclass(frozen=True)
+class RegimeHistoryPoint:
+    date: datetime | None
+    regime: Literal["goldilocks", "reflation", "inflation", "deflation"]
+    growth_score: float
+    inflation_score: float
+    regime_strength: float
+
+
+@dataclass(frozen=True)
+class IndicatorSnapshot:
+    symbol: str
+    latest_value: float | None
+    change_1d: float | None
+    change_5d: float | None
+    change_1m: float | None
+    trend_state: str
+    volatility: float | None
+    as_of: datetime | None
+
+
+@dataclass(frozen=True)
+class ConfirmationSnapshot:
+    symbol: str
+    role_label: str
+    state: Literal["bullish", "neutral", "bearish"]
+    score: float
+    trend: float | None
+    momentum: float | None
+    volatility: float | None
+    last_transition: SignalTransition | None
+    as_of: datetime | None
+
+
+@dataclass(frozen=True)
 class VamsSignal:
     symbol: str
     state: Literal["bullish", "neutral", "bearish"]
@@ -96,6 +140,16 @@ class VamsSignal:
     momentum: float | None
     as_of: datetime | None
     reasons: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class VamsHistoryPoint:
+    date: datetime | None
+    state: Literal["bullish", "neutral", "bearish"]
+    score: float
+    trend: float | None
+    momentum: float | None
+    volatility: float | None
 
 
 @dataclass(frozen=True)
@@ -135,6 +189,17 @@ class KissPortfolioSnapshot:
 
 
 @dataclass(frozen=True)
+class RegimeOverviewSnapshot:
+    regime: KissRegime
+    regime_history: list[RegimeHistoryPoint]
+    indicators: list[IndicatorSnapshot]
+    confirmations: list[ConfirmationSnapshot]
+    transitions: list[SignalTransition]
+    as_of: datetime | None
+    summary_text: str
+
+
+@dataclass(frozen=True)
 class TickerDetailBundle:
     symbol: str
     info: pd.DataFrame
@@ -149,6 +214,7 @@ class TickerDetailBundle:
     transcripts: pd.DataFrame
     alerts: list[AlertFlag] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    role_label: str | None = None
 
 
 @dataclass(frozen=True)

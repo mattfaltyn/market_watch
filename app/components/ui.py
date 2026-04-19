@@ -8,7 +8,7 @@ from dash import dash_table, dcc, html
 import pandas as pd
 import plotly.graph_objects as go
 
-from app.models import AlertFlag, MetricCard, SignalChange, SleeveAllocation, VamsSignal
+from app.models import AlertFlag, MetricCard, SignalChange, SignalTransition, SleeveAllocation, VamsSignal
 
 
 COLOR_MAP = {
@@ -69,13 +69,12 @@ def _empty_state(message: str = "Data unavailable for this section.") -> html.Di
 def app_shell(
     children,
     page_title: str,
-    active_page: str = "kiss-overview",
+    active_page: str = "regime",
     status_meta: dict | None = None,
 ) -> html.Div:
     status_meta = status_meta or {}
     nav = [
-        ("KISS Overview", "/", "kiss-overview"),
-        ("Implementation", "/implementation", "implementation"),
+        ("Regime", "/", "regime"),
         ("Signals", "/signals", "signals"),
         ("Market Watch", "/market-watch", "market-watch"),
     ]
@@ -91,7 +90,7 @@ def app_shell(
                             html.Div(
                                 className="brand-block",
                                 children=[
-                                    html.Div("KISS / SYSTEMATIC PORTFOLIO", className="brand-kicker"),
+                                    html.Div("KISS / MARKET REGIME", className="brand-kicker"),
                                     html.H1("KISS Terminal"),
                                     html.P(page_title, className="subtitle"),
                                 ],
@@ -216,7 +215,7 @@ def fatal_error_page(title: str, errors: list[str], guidance: list[str] | None =
             )
         ],
         page_title="Dashboard load error",
-        active_page="kiss-overview",
+        active_page="regime",
         status_meta={"scope": "Load failure"},
     )
 
@@ -495,6 +494,29 @@ def delta_strip(changes: list[SignalChange]) -> html.Div:
                     html.Div(change.symbol, className="delta-symbol"),
                     html.Div(change.field.replace("_", " ").title(), className="delta-field"),
                     html.Div(f"{change.old_value} -> {change.new_value}", className="delta-transition"),
+                ],
+            )
+        )
+    return html.Div(className="delta-strip", children=items)
+
+
+def transition_strip(changes: list[SignalTransition]) -> html.Div:
+    if not changes:
+        return html.Div(className="delta-strip empty", children=[html.Div("No historical transition available.", className="terminal-caption")])
+    items = []
+    for change in changes[:6]:
+        tone = "market"
+        if "Regime" in change.label:
+            tone = "positive"
+        elif "BTC" in change.label:
+            tone = "warning"
+        items.append(
+            html.Div(
+                className=f"delta-event tone-{tone}",
+                children=[
+                    html.Div(change.label, className="delta-symbol"),
+                    html.Div(change.current_state.upper(), className="delta-field"),
+                    html.Div(change.caption, className="delta-transition"),
                 ],
             )
         )
