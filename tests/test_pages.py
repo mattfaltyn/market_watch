@@ -1,12 +1,12 @@
 import pandas as pd
 
 from app.components.ui import allocation_band, fatal_error_page, macro_quadrant, make_table, sleeve_state_card, transition_strip
+from app.config import load_config
 from app.routing import _should_force_refresh
 from app.models import (
     AlertFlag,
     ConfirmationSnapshot,
     IndicatorSnapshot,
-    KissPortfolioSnapshot,
     KissRegime,
     RegimeHistoryPoint,
     RegimeOverviewSnapshot,
@@ -16,38 +16,11 @@ from app.models import (
     TickerDetailBundle,
     VamsSignal,
 )
-from app.pages.implementation import render_implementation
+from app.pages.markets import render_markets
 from app.pages.overview import render_regime_overview
-from app.pages.signals import render_signals
-from app.pages.ticker_detail import render_ticker_detail
-
-
-def _portfolio_snapshot() -> KissPortfolioSnapshot:
-    regime = KissRegime(
-        regime="goldilocks",
-        regime_strength=0.42,
-        hybrid_label=None,
-        growth_direction="up",
-        inflation_direction="down",
-        component_scores={"equity_trend": 0.2, "yield_trend": -0.1},
-        as_of=None,
-        reasons=["Growth proxies are trending up.", "Inflation proxies are trending down."],
-    )
-    return KissPortfolioSnapshot(
-        regime=regime,
-        sleeves=[
-            SleeveAllocation("equity", "SPY", 0.6, 0.6, 0.3, "neutral", 0.5, "Goldilocks", 0.0),
-            SleeveAllocation("fixed_income", "AGG", 0.3, 0.3, 0.3, "bullish", 1.0, "Goldilocks", 0.0),
-            SleeveAllocation("bitcoin", "BTC-USD", 0.1, 0.1, 0.05, "neutral", 0.5, "Goldilocks", 0.05),
-        ],
-        cash_symbol="USFR",
-        cash_weight=0.35,
-        gross_exposure=0.65,
-        summary_text="KISS is in Goldilocks with 65% gross exposure.",
-        implementation_text="Set SPY to 30%, AGG to 30%, BTC-USD to 5%, hold USFR for the balance.",
-        signal_changes=[SignalChange("BTC-USD", "actual_weight", "0.0%", "5.0%", "BTC-USD actual weight moved 0.0% -> 5.0%.")],
-        as_of=None,
-    )
+from app.pages.ticker_detail import _mini_stat, render_ticker_detail
+from app.pages.watchlist import render_watchlist
+from app.models import MarketSnapshot, MarketIndexSnapshot, RatesSnapshot
 
 
 def _regime_snapshot() -> RegimeOverviewSnapshot:
@@ -83,7 +56,7 @@ def _regime_snapshot() -> RegimeOverviewSnapshot:
             IndicatorSnapshot("QQQ", 450.0, 0.01, 0.04, 0.09, "above_50d", 0.17, None),
             IndicatorSnapshot("IWM", 210.0, 0.00, 0.02, 0.05, "above_50d", 0.22, None),
             IndicatorSnapshot("10Y", 0.043, None, 0.001, -0.002, "down", None, None),
-            IndicatorSnapshot("10Y-2Y", 0.005, None, None, None, "steepening", None, None),
+            IndicatorSnapshot("10Y-5Y", 0.005, None, None, None, "steepening", None, None),
         ],
         confirmations=[
             ConfirmationSnapshot("SPY", "Equity confirmation", "bullish", 0.4, 0.2, 0.2, 0.15, SignalTransition("SPY", "neutral", "bullish", None, 3, "SPY changed neutral -> bullish 3 trading days ago."), None),
@@ -100,21 +73,49 @@ def _regime_snapshot() -> RegimeOverviewSnapshot:
 
 
 def test_regime_overview_renders():
-    layout = render_regime_overview(_regime_snapshot(), [])
+    cfg = load_config()
+    layout = render_regime_overview(_regime_snapshot(), [], cfg)
     assert layout is not None
 
 
-def test_implementation_page_renders():
-    layout = render_implementation(_portfolio_snapshot(), [])
+def test_regime_overview_renders_with_empty_regime_history():
+    cfg = load_config()
+    snap = _regime_snapshot()
+    snap = RegimeOverviewSnapshot(
+        regime=snap.regime,
+        regime_history=[],
+        indicators=snap.indicators,
+        confirmations=snap.confirmations,
+        transitions=snap.transitions,
+        as_of=snap.as_of,
+        summary_text=snap.summary_text,
+        warnings=snap.warnings,
+    )
+    layout = render_regime_overview(snap, [], cfg)
     assert layout is not None
 
 
-def test_signals_page_renders():
-    layout = render_signals(_regime_snapshot(), [])
+def test_markets_page_renders():
+    cfg = load_config()
+    idx = MarketIndexSnapshot("SPY", 100.0, 0.01, 0.02, 0.05, 0.1, "above", "above", "above", None, None)
+    market = MarketSnapshot(indices=[idx], positive_participation_ratio=0.5, as_of=None)
+    rates = RatesSnapshot(None, 0.04, 0.045, 0.048, 0.005, 0.001, -0.002)
+    sp = pd.DataFrame({"report_date": pd.to_datetime(["2020-01-01", "2021-01-01"]), "annual_returns": [0.1, 0.12]})
+    layout = render_markets(market, rates, sp, [], cfg)
+    assert layout is not None
+
+
+def test_markets_page_no_indices_no_curve():
+    cfg = load_config()
+    market = MarketSnapshot(indices=[], positive_participation_ratio=0.0, as_of=None)
+    rates = RatesSnapshot(None, None, None, None, None, None, None)
+    sp = pd.DataFrame({"report_date": pd.to_datetime(["2020-01-01"]), "annual_returns": [0.1]})
+    layout = render_markets(market, rates, sp, [], cfg)
     assert layout is not None
 
 
 def test_ticker_detail_renders():
+    cfg = load_config()
     bundle = TickerDetailBundle(
         symbol="SPY",
         info=pd.DataFrame({"symbol": ["SPY"], "sector": ["ETF"], "industry": ["Index Fund"]}),
@@ -127,9 +128,49 @@ def test_ticker_detail_renders():
         alerts=[AlertFlag("SPY", "allocation", "SPY regime confirmation is strong", "high")],
         errors=[],
         role_label="Equity confirmation",
+        as_of=None,
     )
-    layout = render_ticker_detail(bundle)
+    layout = render_ticker_detail(bundle, cfg)
     assert layout is not None
+
+
+def test_ticker_detail_empty_price_and_volume():
+    cfg = load_config()
+    dates = pd.date_range("2023-01-01", periods=260, freq="B")
+    bundle = TickerDetailBundle(
+        symbol="SPY",
+        info=pd.DataFrame({"symbol": ["SPY"], "sector": ["ETF"], "industry": ["Index Fund"]}),
+        price=pd.DataFrame({"report_date": dates, "close": range(260), "Volume": range(260)}),
+        valuation={"ttm_pe": pd.DataFrame({"report_date": pd.to_datetime(["2024-12-31"]), "ttm_pe": [30]})},
+        quality={"roe": pd.DataFrame({"report_date": pd.to_datetime(["2024-12-31"]), "roe": [0.25]})},
+        growth={"revenue_yoy_growth": pd.DataFrame({"report_date": pd.to_datetime(["2024-12-31"]), "revenue_yoy_growth": [3.5]})},
+        news=pd.DataFrame(),
+        calendar=pd.DataFrame(),
+        alerts=[],
+        errors=[],
+        role_label=None,
+        as_of=None,
+    )
+    assert render_ticker_detail(bundle, cfg) is not None
+    empty = TickerDetailBundle(
+        symbol="X",
+        info=pd.DataFrame({"symbol": ["X"]}),
+        price=pd.DataFrame(),
+        valuation={},
+        quality={},
+        growth={},
+        news=pd.DataFrame(),
+        calendar=pd.DataFrame(),
+        alerts=[],
+        errors=[],
+        role_label=None,
+        as_of=None,
+    )
+    assert render_ticker_detail(empty, cfg) is not None
+
+
+def test_mini_stat_non_percent_branch():
+    assert _mini_stat("x", 1.234, as_percent=False) is not None
 
 
 def test_should_force_refresh_only_on_refresh_event():
@@ -159,7 +200,7 @@ def test_macro_quadrant_renders():
 
 
 def test_sleeve_state_card_renders():
-    allocation = SleeveAllocation("equity", "SPY", 0.6, 0.6, 0.3, "neutral", 0.5, "Goldilocks", 0.0)
+    allocation = SleeveAllocation("equity", "SPY", 0.6, 0.6, 0.3, "neutral", 0.5, "Goldilocks", None)
     signal = VamsSignal("SPY", "neutral", 0.1, 0.2, 0.15, 0.05, None, ["Mixed trend"])
     component = sleeve_state_card(allocation, signal)
     assert component is not None
@@ -168,3 +209,71 @@ def test_sleeve_state_card_renders():
 def test_transition_strip_renders():
     component = transition_strip([SignalTransition("Regime", "reflation", "goldilocks", None, 1, "Regime changed yesterday.")])
     assert component is not None
+
+
+def test_render_watchlist_empty_and_nonempty():
+    cfg = load_config()
+    empty = render_watchlist(pd.DataFrame(), [], cfg)
+    assert empty is not None
+    df = pd.DataFrame(
+        {
+            "symbol": ["SPY"],
+            "close": [100.0],
+            "return_1d": [0.01],
+            "return_5d": [0.02],
+            "return_1m": [0.03],
+            "beta_1y": [1.0],
+            "days_to_earnings": [5.0],
+            "ttm_pe": [20.0],
+            "industry_ttm_pe": [18.0],
+            "recent_news_7d": [2],
+            "alert_count": [0],
+            "alerts": [["a"]],
+            "high_alert_count": [0],
+        }
+    )
+    assert render_watchlist(df, ["warn"], cfg) is not None
+
+
+def test_ticker_detail_mini_stat_formats():
+    cfg = load_config()
+    bundle = TickerDetailBundle(
+        symbol="SPY",
+        info=pd.DataFrame(),
+        price=pd.DataFrame({"report_date": [pd.Timestamp("2024-01-01")], "close": [100.0]}),
+        valuation={"ttm_pe": pd.DataFrame()},
+        quality={"roe": pd.DataFrame({"report_date": [pd.Timestamp("2024-01-01")], "roe": [2.5]})},
+        growth={"revenue_yoy_growth": pd.DataFrame()},
+        news=pd.DataFrame(),
+        calendar=pd.DataFrame(),
+        alerts=[],
+        errors=[],
+        role_label=None,
+        as_of=None,
+    )
+    assert render_ticker_detail(bundle, cfg) is not None
+
+
+def test_overview_benchmark_tile_branches(monkeypatch):
+    from app.pages import overview as ov
+
+    monkeypatch.setattr(ov, "_indicator_map", lambda _s: {})
+    cfg = load_config()
+
+    regime = KissRegime("goldilocks", 0.5, None, "up", "down", {"equity_trend": 0.1}, None, [])
+    inds = [
+        IndicatorSnapshot("SPY", None, None, None, None, "x", None, None),
+        IndicatorSnapshot("QQQ", 100.0, 0.01, None, None, "x", None, None),
+        IndicatorSnapshot("IWM", 100.0, 0.01, 0.02, None, "x", None, None),
+        IndicatorSnapshot("XL", 100.0, None, None, None, "x", None, None),
+    ]
+    snap = RegimeOverviewSnapshot(
+        regime=regime,
+        regime_history=[],
+        indicators=inds,
+        confirmations=[],
+        transitions=[SignalTransition("Regime", "a", "b", None, 1, "c")],
+        as_of=None,
+        summary_text="s",
+    )
+    assert render_regime_overview(snap, [], cfg) is not None

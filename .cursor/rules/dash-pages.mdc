@@ -8,5 +8,5 @@ alwaysApply: false
 
 - Build layout with helpers from `app/components/ui.py` (`app_shell`, `section_panel`, charts, tables, cards).
 - New routes require a branch in `app/main.py` `route` callback and a renderer under `app/pages/`.
-- Keep copy and structure aligned with the regime-first product; `/implementation` is legacy portfolio framing.
+- Keep copy and structure aligned with the regime-first product (Overview, Markets, Watchlist, Ticker).
 - Prefer passing snapshot/dataclass models from services rather than fetching inside page modules.

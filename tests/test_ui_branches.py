@@ -3,8 +3,11 @@ from __future__ import annotations
 from datetime import datetime
 
 import pandas as pd
+from dash import html
 
 from app.components import ui
+from app.components.layout import app_shell
+from app.components.primitives import normalize_status_meta, warning_alerts
 from app.models import (
     AlertFlag,
     MetricCard,
@@ -90,3 +93,64 @@ def test_heatstrip_value_formats_and_none():
 
 def test_benchmark_card_source_note():
     assert ui.benchmark_card("SPY", "100", "1D +1%", "positive", source_note="via Yahoo Finance") is not None
+
+
+def test_normalize_status_meta_and_warning_alerts():
+    meta = normalize_status_meta({})
+    assert meta.get("as_of") is None and meta.get("source") == "yfinance" and meta.get("scope") == "KISS"
+    assert warning_alerts([]) == []
+    assert len(warning_alerts(["x"])) == 1
+
+
+def test_app_shell_accepts_non_list_children():
+    layout = app_shell(html.Div("solo"), page_title="t", active_page="overview", status_meta={"as_of": None})
+    assert layout is not None
+
+
+def test_line_chart_secondary_y_and_reference_lines():
+    df = pd.DataFrame(
+        {
+            "report_date": pd.date_range("2024-01-01", periods=5, freq="B"),
+            "a": [1.0, 1.1, 1.2, 1.3, 1.4],
+            "b": [2.0, 2.1, 2.2, 2.3, 2.4],
+        }
+    )
+    g = ui.make_line_chart(
+        df,
+        "report_date",
+        ["a", "b"],
+        "dual",
+        secondary_y="b",
+        y_reference=0.0,
+        extra_hlines=[(1.25, "ref")],
+        range_selector=True,
+    )
+    assert g is not None
+
+
+def test_exposure_gauge_step_ranges():
+    assert ui.exposure_gauge(0.4, "x", step_ranges=[(0, 50), (50, 100)]) is not None
+
+
+def test_yield_curve_all_none_values():
+    assert ui.yield_curve_bar(["2Y", "10Y"], [None, None], "t") is not None
+
+
+def test_yield_curve_empty_inputs():
+    assert ui.yield_curve_bar([], [], "t") is not None
+
+
+def test_price_with_mas_branches():
+    assert ui.price_with_mas(pd.DataFrame(), "SPY", {"20D": 20}, volume_column="volume") is not None
+    df = pd.DataFrame(
+        {
+            "report_date": pd.date_range("2024-01-01", periods=260, freq="B"),
+            "close": range(260),
+            "volume": range(260),
+        }
+    )
+    assert ui.price_with_mas(df, "SPY", {"20D": 20, "50D": 50, "200D": 200}, volume_column="volume", range_selector=False) is not None
+
+
+def test_sparkline_semantic_else_branch():
+    assert ui.sparkline_chart([1.0, 2.0], semantic="rates") is not None

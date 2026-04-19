@@ -4,7 +4,7 @@ Guidance for coding agents and contributors working on **market_watch**.
 
 ## Project summary
 
-Local-first **KISS regime and market-indicators** dashboard built with **Plotly Dash** and **`yfinance`** (Yahoo Finance). The home experience is regime-first (quadrant, drivers, historical transitions, confirmation assets). Legacy portfolio implementation remains on `/implementation`.
+Local-first **KISS regime and market-indicators** dashboard built with **Plotly Dash**, **dash-mantine-components**, and **`yfinance`** (Yahoo Finance). The home experience is regime-first (Overview: quadrant, drivers, transitions, confirmation assets, diagnostics accordion). Routes: `/`, `/markets`, `/watchlist`, `/ticker/<symbol>` (see [`docs/routing-and-pages.md`](docs/routing-and-pages.md)).
 
 ## Repository map
 
@@ -14,9 +14,9 @@ Local-first **KISS regime and market-indicators** dashboard built with **Plotly 
 | [`app/routing.py`](app/routing.py) | `dispatch_page`, `dispatch_page_safe`, `refresh_state_payload` (unit-tested; Dash callbacks in `main` are thin wrappers) |
 | [`app/config.py`](app/config.py) | Load `config/settings.yaml` → `AppConfig` |
 | [`app/models.py`](app/models.py) | Shared dataclasses |
-| [`app/components/`](app/components/) | Reusable UI (`ui.py`, CSS constants) |
-| [`app/pages/`](app/pages/) | Per-route layout builders |
-| [`app/services/`](app/services/) | Regime, VAMS, regime history, portfolio, market, watchlist, signals |
+| [`app/components/`](app/components/) | Theme, layout, primitives, charts, tables, `ui.py` re-exports |
+| [`app/pages/`](app/pages/) | Per-route layout builders (overview, markets, watchlist, ticker) |
+| [`app/services/`](app/services/) | Regime, `regime_frame`, regime history, VAMS, market, watchlist, signals |
 | [`app/data/`](app/data/) | `FileCache`, [`MarketDataClient`](app/data/yfinance_client.py) (Yahoo Finance) |
 | [`config/settings.yaml`](config/settings.yaml) | Methodology, symbols, TTLs |
 | [`tests/`](tests/) | Pytest suite (fakes for `MarketDataClient`-shaped clients) |
@@ -71,7 +71,6 @@ The default pytest invocation runs workers in parallel and enforces **100% branc
 | New route or behavior branch | [`app/main.py`](app/main.py) callback + new or existing [`app/pages/`](app/pages/) |
 | Regime / replay / overview data | [`app/services/regime_history.py`](app/services/regime_history.py), [`app/services/kiss_regime.py`](app/services/kiss_regime.py) |
 | VAMS math | [`app/services/vams.py`](app/services/vams.py) |
-| Legacy allocation | [`app/services/kiss_portfolio.py`](app/services/kiss_portfolio.py), [`app/pages/implementation.py`](app/pages/implementation.py) |
 | New config knobs | [`config/settings.yaml`](config/settings.yaml) + [`app/config.py`](app/config.py) if exposing properties |
 | Yahoo / cache integration | [`app/data/yfinance_client.py`](app/data/yfinance_client.py) |
 | Tests | [`tests/`](tests/) — mirror fake-client patterns in `test_regime_history.py` / `test_pages.py` |

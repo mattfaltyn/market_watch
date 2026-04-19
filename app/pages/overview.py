@@ -1,21 +1,23 @@
 from __future__ import annotations
 
 import pandas as pd
-from dash import html
+import dash_mantine_components as dmc
+from dash import dcc, html
 
+from app.components.charts import make_line_chart
+from app.components.tables import make_table
 from app.components.ui import (
     app_shell,
     badge,
     benchmark_card,
-    error_box,
     heatstrip,
     macro_quadrant,
     metric_card,
     section_panel,
     signal_meter,
-    stat_chip,
     transition_strip,
 )
+from app.config import AppConfig
 from app.models import IndicatorSnapshot, MetricCard, RegimeOverviewSnapshot
 
 
@@ -23,9 +25,9 @@ def _indicator_map(snapshot: RegimeOverviewSnapshot) -> dict[str, IndicatorSnaps
     return {indicator.symbol: indicator for indicator in snapshot.indicators}
 
 
-def _benchmark_tiles(snapshot: RegimeOverviewSnapshot) -> list[html.Div]:
+def _benchmark_tiles(snapshot: RegimeOverviewSnapshot) -> list:
     indicators = _indicator_map(snapshot)
-    symbols = [ind.symbol for ind in snapshot.indicators if ind.symbol not in ("10Y", "10Y-2Y")]
+    symbols = [ind.symbol for ind in snapshot.indicators if ind.symbol not in ("10Y", "10Y-5Y")]
     tiles = []
     for symbol in symbols:
         indicator = indicators.get(symbol)
@@ -49,10 +51,10 @@ def _benchmark_tiles(snapshot: RegimeOverviewSnapshot) -> list[html.Div]:
     return tiles
 
 
-def _change_items(snapshot: RegimeOverviewSnapshot) -> list[html.Div]:
+def _mover_chips(snapshot: RegimeOverviewSnapshot) -> list:
     indicators = _indicator_map(snapshot)
     notable = []
-    for symbol in ["SPY", "BTC-USD", "USO", "DBC", "10Y", "10Y-2Y"]:
+    for symbol in ["SPY", "BTC-USD", "USO", "DBC", "10Y", "10Y-5Y"]:
         indicator = indicators.get(symbol)
         if indicator is None:
             continue
@@ -61,42 +63,136 @@ def _change_items(snapshot: RegimeOverviewSnapshot) -> list[html.Div]:
         if change is None:
             continue
         notable.append((symbol, label, change))
-    notable = sorted(notable, key=lambda item: abs(item[2]), reverse=True)[:4]
+    notable = sorted(notable, key=lambda item: abs(item[2]), reverse=True)[:6]
     return [
-        html.Div(
-            className="action-item",
-            children=f"{symbol} {label} {change:+.1%}",
-        )
+        dmc.Badge(f"{symbol} {label} {change:+.1%}", color="cyan" if change >= 0 else "red", variant="light", size="sm")
         for symbol, label, change in notable
     ]
 
 
-def render_regime_overview(snapshot: RegimeOverviewSnapshot, errors: list[str]):
+def _history_frame(snapshot: RegimeOverviewSnapshot) -> pd.DataFrame:
+    return pd.DataFrame(
+        [
+            {
+                "report_date": point.date,
+                "growth_score": point.growth_score,
+                "inflation_score": point.inflation_score,
+                "regime_strength": point.regime_strength,
+            }
+            for point in snapshot.regime_history
+        ]
+    )
+
+
+def render_regime_overview(snapshot: RegimeOverviewSnapshot, errors: list[str], config: AppConfig):
     regime = snapshot.regime
     regime_transition = next((transition for transition in snapshot.transitions if transition.label == "Regime"), None)
+    weak_thr = float(config.regime_inputs.get("weak_score_threshold", 0.10))
+    vol_hi = float(config.alert_thresholds.get("volatility_high_threshold", 0.35))
+
     kpis = [
         MetricCard("Current Regime", regime.regime.title(), f"Strength {regime.regime_strength:.2f}", tone="market", icon="◫", emphasis="high"),
-        MetricCard("Last Regime Flip", regime_transition.current_state.title() if regime_transition else regime.regime.title(), regime_transition.caption if regime_transition else "No transition history", tone="positive", icon="↺"),
-        MetricCard("Growth", regime.growth_direction.title(), f"Score {next((point.growth_score for point in snapshot.regime_history[-1:]), 0.0):+.2f}", tone="positive" if regime.growth_direction == "up" else "negative", icon="↑"),
-        MetricCard("Inflation", regime.inflation_direction.title(), f"Score {next((point.inflation_score for point in snapshot.regime_history[-1:]), 0.0):+.2f}", tone="warning" if regime.inflation_direction == "up" else "positive", icon="↕"),
+        MetricCard(
+            "Last Regime Flip",
+            regime_transition.current_state.title() if regime_transition else regime.regime.title(),
+            regime_transition.caption if regime_transition else "No transition history",
+            tone="positive",
+            icon="↺",
+        ),
+        MetricCard(
+            "Growth",
+            regime.growth_direction.title(),
+            f"Score {snapshot.regime_history[-1].growth_score:+.2f}" if snapshot.regime_history else "—",
+            tone="positive" if regime.growth_direction == "up" else "negative",
+            icon="↑",
+        ),
+        MetricCard(
+            "Inflation",
+            regime.inflation_direction.title(),
+            f"Score {snapshot.regime_history[-1].inflation_score:+.2f}" if snapshot.regime_history else "—",
+            tone="warning" if regime.inflation_direction == "up" else "positive",
+            icon="↕",
+        ),
     ]
 
     growth_score = snapshot.regime_history[-1].growth_score if snapshot.regime_history else 0.0
     inflation_score = snapshot.regime_history[-1].inflation_score if snapshot.regime_history else 0.0
+    history_frame = _history_frame(snapshot)
+
+    strength_pct = min(100.0, max(0.0, regime.regime_strength * 100.0))
+    hero = dmc.Paper(
+        children=[
+            dmc.Group(
+                [
+                    dmc.Stack(
+                        [
+                            dmc.Group([dmc.Title(regime.regime.title(), order=2), badge(regime.hybrid_label, "warning") if regime.hybrid_label else badge("Confirmed", "positive")]),
+                            dmc.Text("Composite scores use a −1…+1 proxy scale per methodology.", size="xs", c="dimmed"),
+                        ],
+                        gap="xs",
+                    ),
+                    dmc.RingProgress(
+                        sections=[{"value": strength_pct, "color": "cyan"}],
+                        size=120,
+                        thickness=12,
+                        label=dmc.Text(f"{regime.regime_strength:.2f}", size="lg", fw=700),
+                    ),
+                ],
+                justify="space-between",
+                align="center",
+            ),
+            dmc.Divider(my="md"),
+            dmc.Group(
+                [
+                    dmc.Tooltip(
+                        label=f"Growth composite (−1 bearish … +1 bullish). Weak if |score| < {weak_thr:.2f}.",
+                        children=dmc.Badge(f"Growth {regime.growth_direction.upper()}", color="green" if regime.growth_direction == "up" else "red", variant="light"),
+                    ),
+                    dmc.Tooltip(
+                        label=f"Inflation composite (−1 … +1). Weak if |score| < {weak_thr:.2f}.",
+                        children=dmc.Badge(f"Inflation {regime.inflation_direction.upper()}", color="orange" if regime.inflation_direction == "up" else "teal", variant="light"),
+                    ),
+                    dmc.Text(f"Last flip: {regime_transition.caption}" if regime_transition else "", size="sm", c="dimmed"),
+                ],
+                gap="md",
+            ),
+        ],
+        p="lg",
+        radius="lg",
+        withBorder=True,
+    )
 
     confirmation_cards = []
     for confirmation in snapshot.confirmations:
         confirmation_cards.append(
-            html.Div(
-                className=f"sleeve-card tone-{confirmation.state if confirmation.state != 'neutral' else 'neutral_state'}",
+            dmc.Paper(
                 children=[
-                    html.Div(className="sleeve-head", children=[html.Div(confirmation.symbol, className="sleeve-symbol"), badge(confirmation.state.upper(), confirmation.state)]),
-                    html.Div(confirmation.role_label, className="terminal-caption"),
+                    dmc.Group(
+                        [
+                            dcc.Link(dmc.Text(confirmation.symbol, fw=700, c="cyan"), href=f"/ticker/{confirmation.symbol}", style={"textDecoration": "none"}),
+                            badge(confirmation.state.upper(), confirmation.state),
+                        ],
+                        justify="space-between",
+                    ),
+                    dmc.Text(confirmation.role_label, size="xs", c="dimmed"),
                     signal_meter(confirmation.score, -1.0, 1.0, "Score", "market" if confirmation.score >= 0 else "negative"),
                     signal_meter(confirmation.trend or 0.0, -1.0, 1.0, "Trend", "market" if (confirmation.trend or 0.0) >= 0 else "negative"),
                     signal_meter(confirmation.momentum or 0.0, -1.0, 1.0, "Momentum", "market" if (confirmation.momentum or 0.0) >= 0 else "negative"),
-                    html.Div(confirmation.last_transition.caption if confirmation.last_transition else "No transition history", className="terminal-caption"),
+                    signal_meter(
+                        confirmation.volatility or 0.0,
+                        0.0,
+                        1.0,
+                        "Volatility",
+                        "warning",
+                        threshold_mark=vol_hi,
+                        threshold_label=f"High vol {vol_hi:.0%}",
+                    ),
+                    dmc.Text(confirmation.last_transition.caption if confirmation.last_transition else "No transition history", size="xs", c="dimmed"),
                 ],
+                p="md",
+                radius="lg",
+                withBorder=True,
+                className=f"sleeve-card tone-{confirmation.state if confirmation.state != 'neutral' else 'neutral_state'}",
             )
         )
 
@@ -109,9 +205,119 @@ def render_regime_overview(snapshot: RegimeOverviewSnapshot, errors: list[str]):
         ["OIL", "COMMODITY", "10Y YIELD"],
     )
 
+    proxy_rows = pd.DataFrame([{"Component": key, "Score": value} for key, value in regime.component_scores.items()])
+    confirmation_rows = pd.DataFrame(
+        [
+            {
+                "Symbol": c.symbol,
+                "Role": c.role_label,
+                "State": c.state.upper(),
+                "Score": c.score,
+                "Trend": c.trend,
+                "Momentum": c.momentum,
+                "Volatility": c.volatility,
+            }
+            for c in snapshot.confirmations
+        ]
+    )
+
+    diagnostics = dmc.Accordion(
+        multiple=True,
+        variant="separated",
+        radius="md",
+        children=[
+            dmc.AccordionItem(
+                [
+                    dmc.AccordionControl("Regime history & strength"),
+                    dmc.AccordionPanel(
+                        dmc.Stack(
+                            [
+                                html.Div(
+                                    className="two-col",
+                                    children=[
+                                        section_panel(
+                                            "Regime History",
+                                            [
+                                                make_line_chart(
+                                                    history_frame,
+                                                    "report_date",
+                                                    ["growth_score", "inflation_score"],
+                                                    "Growth vs Inflation",
+                                                    semantic="market",
+                                                    x_axis_title="Date",
+                                                    y_axis_title="Score",
+                                                    y_reference=0.0,
+                                                    range_selector=True,
+                                                )
+                                            ],
+                                            subtitle="Historical score replay",
+                                        ),
+                                        section_panel(
+                                            "Regime Strength",
+                                            [
+                                                make_line_chart(
+                                                    history_frame,
+                                                    "report_date",
+                                                    ["regime_strength"],
+                                                    "Strength",
+                                                    semantic="rates",
+                                                    x_axis_title="Date",
+                                                    y_axis_title="Strength",
+                                                    y_reference=weak_thr,
+                                                    range_selector=True,
+                                                )
+                                            ],
+                                            subtitle="Mean |growth| and |inflation|; dashed line = weak threshold",
+                                        ),
+                                    ],
+                                ),
+                            ],
+                            gap="md",
+                        )
+                    ),
+                ],
+                value="diag-charts",
+            ),
+            dmc.AccordionItem(
+                [
+                    dmc.AccordionControl("Driver decomposition"),
+                    dmc.AccordionPanel(
+                        html.Div(
+                            className="two-col",
+                            children=[
+                                section_panel("Growth Drivers", [growth_heat], subtitle="Regime inputs"),
+                                section_panel("Inflation Drivers", [inflation_heat], subtitle="Regime inputs"),
+                            ],
+                        )
+                    ),
+                ],
+                value="diag-decomp",
+            ),
+            dmc.AccordionItem(
+                [
+                    dmc.AccordionControl("Raw tables"),
+                    dmc.AccordionPanel(
+                        html.Div(
+                            className="two-col",
+                            children=[
+                                section_panel("Regime Components", [make_table(proxy_rows, numeric_columns=["Score"])], subtitle="Proxy scores"),
+                                section_panel(
+                                    "Confirmation Table",
+                                    [make_table(confirmation_rows, numeric_columns=["Score", "Trend", "Momentum", "Volatility"])],
+                                    subtitle="VAMS diagnostics",
+                                ),
+                            ],
+                        )
+                    ),
+                ],
+                value="diag-tables",
+            ),
+        ],
+    )
+
     return app_shell(
         [
-            error_box(errors),
+            hero,
             html.Div(className="four-col", children=[metric_card(card) for card in kpis]),
             html.Div(
                 className="hero-grid",
@@ -120,7 +326,14 @@ def render_regime_overview(snapshot: RegimeOverviewSnapshot, errors: list[str]):
                         "Regime Quadrant",
                         [
                             macro_quadrant(regime.regime, growth_score, inflation_score, regime.hybrid_label),
-                            html.Div(className="chip-row", children=[badge(regime.growth_direction.upper(), "positive"), badge(regime.inflation_direction.upper(), "rates"), stat_chip("Market Tone", regime.regime.title(), "market")]),
+                            html.Div(
+                                className="chip-row",
+                                children=[
+                                    badge(regime.growth_direction.upper(), "positive"),
+                                    badge(regime.inflation_direction.upper(), "rates"),
+                                    dmc.Tooltip(label="Current classified regime label", children=badge(regime.regime.title(), "market")),
+                                ],
+                            ),
                         ],
                         subtitle="Current macro environment",
                     ),
@@ -128,23 +341,22 @@ def render_regime_overview(snapshot: RegimeOverviewSnapshot, errors: list[str]):
                         "What Changed",
                         [
                             transition_strip(snapshot.transitions),
-                            html.Div(className="action-list", children=_change_items(snapshot)),
+                            dmc.Group(_mover_chips(snapshot), gap="xs", mt="sm"),
                         ],
-                        subtitle="Historical transitions and recent moves",
+                        subtitle="Regime / confirmation transitions and top absolute 1D or 5D moves",
                     ),
                 ],
             ),
-            section_panel("Indicator Tape", [html.Div(className="chart-wall", children=_benchmark_tiles(snapshot))], subtitle="Key KISS market indicators"),
-            section_panel("Confirmation", [html.Div(className="signal-grid", children=confirmation_cards)], subtitle="VAMS used as confirmation, not sizing"),
-            html.Div(
-                className="two-col",
-                children=[
-                    section_panel("Growth Drivers", [growth_heat], subtitle="Regime inputs"),
-                    section_panel("Inflation Drivers", [inflation_heat], subtitle="Regime inputs"),
-                ],
+            section_panel(
+                "Indicator Tape",
+                [html.Div(className="chart-wall", children=_benchmark_tiles(snapshot))],
+                subtitle="Key KISS market indicators",
             ),
+            section_panel("Confirmation", [html.Div(className="signal-grid", children=confirmation_cards)], subtitle="VAMS used as confirmation, not sizing"),
+            diagnostics,
         ],
         page_title="Regime, drivers, transitions, and confirming assets.",
-        active_page="regime",
+        active_page="overview",
         status_meta={"as_of": snapshot.as_of, "scope": regime.regime.title()},
+        warnings=errors,
     )

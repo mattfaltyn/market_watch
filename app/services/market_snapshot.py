@@ -77,7 +77,7 @@ def build_rates_snapshot(client, force_refresh: bool = False) -> RatesSnapshot:
     result = client.get_treasury_yields(force_refresh=force_refresh)
     frame = result.data.sort_values("report_date") if not result.data.empty else pd.DataFrame()
     if frame.empty:
-        return RatesSnapshot(None, None, None, None, None, None, None)
+        return RatesSnapshot(None, None, None, None, None, None, None)  # type: ignore[arg-type]
 
     latest = frame.iloc[-1]
     y10_series = pd.to_numeric(frame.get("bc10_year"), errors="coerce")
@@ -86,7 +86,7 @@ def build_rates_snapshot(client, force_refresh: bool = False) -> RatesSnapshot:
         y2=float(latest["bc2_year"]) if pd.notna(latest.get("bc2_year")) else None,
         y10=float(latest["bc10_year"]) if pd.notna(latest.get("bc10_year")) else None,
         y30=float(latest["bc30_year"]) if pd.notna(latest.get("bc30_year")) else None,
-        spread_10y_2y=float(latest["bc10_year"] - latest["bc2_year"])
+        spread_10y_short_proxy=float(latest["bc10_year"] - latest["bc2_year"])
         if pd.notna(latest.get("bc10_year")) and pd.notna(latest.get("bc2_year"))
         else None,
         change_10y_5d=float(y10_series.iloc[-1] - y10_series.iloc[-6]) if len(y10_series.dropna()) > 5 else None,

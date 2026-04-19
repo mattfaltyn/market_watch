@@ -12,7 +12,7 @@ If calls fail, callbacks in [`app/main.py`](../app/main.py) surface [`fatal_erro
 
 - `bc10_year` ← `^TNX` (10Y, percent quote ÷ 100 → decimal yield)
 - `bc30_year` ← `^TYX` (30Y)
-- `bc2_year` ← `^FVX` (**5Y** Yahoo proxy used in place of a dedicated 2Y series). The UI still labels spreads as **10Y–2Y**; interpret the short end as this proxy.
+- `bc2_year` ← `^FVX` (**5Y** Yahoo proxy used in place of a dedicated 2Y series). The app surfaces this as **10Y − 5Y (proxy)** (`spread_10y_short_proxy` on [`RatesSnapshot`](../app/models.py)); it is **not** a true 10Y–2Y spread (2Y is not exposed by `yfinance` here).
 
 If calls fail, [`build_rates_snapshot`](../app/services/market_snapshot.py) returns empty rate fields.
 

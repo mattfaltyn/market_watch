@@ -28,9 +28,9 @@ def compute_regime(market: MarketSnapshot, rates: RatesSnapshot, watchlist: pd.D
         score -= 1
         reasons.append("benchmark participation is weak")
 
-    if rates.spread_10y_2y is not None and rates.spread_10y_2y < 0:
+    if rates.spread_10y_short_proxy is not None and rates.spread_10y_short_proxy < 0:
         score -= 1
-        reasons.append("10Y-2Y curve is inverted")
+        reasons.append("10Y minus short-end proxy curve is inverted")
 
     if rates.change_10y_1m is not None:
         if rates.change_10y_1m <= -0.0025:
@@ -93,8 +93,8 @@ def get_alert_flags(
     if pd.notna(revenue_growth) and revenue_growth < 0:
         flags.append(AlertFlag(symbol, "growth", "Revenue growth is negative", "high"))
 
-    if rates.spread_10y_2y is not None and rates.spread_10y_2y < 0:
-        flags.append(AlertFlag(symbol, "macro", "Yield curve is inverted", "low"))
+    if rates.spread_10y_short_proxy is not None and rates.spread_10y_short_proxy < 0:
+        flags.append(AlertFlag(symbol, "macro", "Yield curve (10Y − short proxy) is inverted", "low"))
 
     return flags
 

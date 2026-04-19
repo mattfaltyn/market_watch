@@ -4,7 +4,6 @@ import pandas as pd
 import pytest
 
 from app.models import DataResult, KissRegime, MarketIndexSnapshot, MarketSnapshot, RatesSnapshot, VamsSignal
-from app.services import kiss_portfolio as kp
 from app.services import kiss_regime as kr
 from app.services import regime_history as rh
 from app.services import signals as sig
@@ -159,21 +158,6 @@ def test_watchlist_helpers_and_empty_paths():
     assert ws._latest_value(pd.DataFrame(), "x") is None
     assert ws._latest_value(pd.DataFrame({"x": [float("nan")]}), "x") is None
     assert ws._next_earnings_days(pd.DataFrame()) is None
-
-
-def test_kiss_portfolio_resets_and_second_snapshot(monkeypatch):
-    monkeypatch.setattr(kp, "_PRIOR_SNAPSHOT", None)
-
-    regime = KissRegime("goldilocks", 0.5, None, "up", "down", {}, None, [])
-    vm = {
-        "SPY": VamsSignal("SPY", "bullish", 0.5, 0.1, 0.1, 0.1, None, []),
-        "AGG": VamsSignal("AGG", "neutral", 0.0, 0.1, 0.1, 0.1, None, []),
-        "BTC-USD": VamsSignal("BTC-USD", "bearish", -0.5, 0.1, 0.1, 0.1, None, []),
-    }
-    kp.build_kiss_portfolio_snapshot(regime, vm, _Cfg())
-    regime2 = KissRegime("inflation", 0.5, None, "down", "up", {}, None, [])
-    kp.build_kiss_portfolio_snapshot(regime2, vm, _Cfg())
-    monkeypatch.setattr(kp, "_PRIOR_SNAPSHOT", None)
 
 
 def test_latest_transition_branches():

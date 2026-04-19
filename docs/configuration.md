@@ -10,12 +10,12 @@ All runtime methodology and TTLs are loaded from [`config/settings.yaml`](../con
 
 | Key | Purpose |
 |-----|---------|
-| `sleeves` | Symbol map: `equity`, `fixed_income`, `bitcoin`, `cash` — used for confirmation, `/implementation`, and allowed `/ticker/` symbols. |
-| `base_weights` | Baseline weights for the legacy `/implementation` view. |
-| `regime_rules` | Per-regime target weights for legacy portfolio construction. |
-| `vams_multipliers` | Bullish / neutral / bearish multipliers for legacy allocation math. |
+| `sleeves` | Symbol map: `equity`, `fixed_income`, `bitcoin`, `cash` — used for VAMS confirmation assets and allowed `/ticker/<symbol>` drill-downs. |
+| `base_weights` | Baseline sleeve weights (KISS methodology; retained in YAML). |
+| `regime_rules` | Per-regime target weights (methodology reference). |
+| `vams_multipliers` | Bullish / neutral / bearish multipliers for VAMS confirmation scoring. |
 | `regime_inputs` | `weak_score_threshold`, nested `growth` and `inflation` proxy symbol overrides (e.g. `equity_trend_symbol`, `yield_symbol`). |
-| `market_watch_symbols` | List of tickers for market snapshot, overview indicator tape, and `/market-watch`. |
+| `market_watch_symbols` | List of tickers for market snapshot, overview indicator tape, and the Markets page (`/markets`). |
 
 ### `alert_thresholds`
 
@@ -33,7 +33,7 @@ TTLs (seconds) passed into [`CachePolicy`](../app/data/yfinance_client.py) in [`
 
 - **Logical** symbols in YAML (e.g. `AGG`, `BTC-USD`) are passed directly to `yfinance` as tickers.
 - [`MarketDataClient.get_prices`](../app/data/yfinance_client.py) shapes OHLCV into `report_date`, `close`, etc. [`last_price_source`](../app/data/yfinance_client.py) is `yfinance` when a series loads successfully.
-- **`KissRegime.unavailable_components`** lists regime proxy inputs that had no usable data (excluded from composite means); warnings are merged into the regime/signals page error strip via `RegimeOverviewSnapshot.warnings`.
+- **`KissRegime.unavailable_components`** lists regime proxy inputs that had no usable data (excluded from composite means); warnings surface on the Overview page via `RegimeOverviewSnapshot.warnings`.
 
 ## `AppConfig` properties
 

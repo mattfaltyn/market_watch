@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import dash
+import dash_mantine_components as dmc
 from dash import Input, Output, State, dcc, html
 
+from app.components.theme import THEME
 from app.components.ui import APP_CSS
 from app.config import ROOT_DIR, load_config
 from app.data.cache import FileCache
@@ -22,7 +24,7 @@ CLIENT = MarketDataClient(
 
 
 def create_app() -> dash.Dash:
-    app = dash.Dash(__name__, suppress_callback_exceptions=True, title="KISS Portfolio")
+    app = dash.Dash(__name__, suppress_callback_exceptions=True, title="KISS Terminal")
     app.index_string = f"""
 <!DOCTYPE html>
 <html>
@@ -43,12 +45,18 @@ def create_app() -> dash.Dash:
     </body>
 </html>
 """
-    app.layout = html.Div(
-        [
+    app.layout = dmc.MantineProvider(
+        theme=THEME,
+        children=[
             dcc.Location(id="url"),
             dcc.Store(id="refresh-state", data={"refresh": 0}),
-            html.Div(id="page-container"),
-        ]
+            dcc.Loading(
+                id="page-loading",
+                type="circle",
+                color="cyan",
+                children=html.Div(id="page-container"),
+            ),
+        ],
     )
 
     @app.callback(Output("refresh-state", "data"), Input("refresh-button", "n_clicks"), State("refresh-state", "data"))

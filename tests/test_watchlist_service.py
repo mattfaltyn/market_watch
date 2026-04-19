@@ -1,7 +1,10 @@
+from datetime import datetime
+
 import pandas as pd
 
 from app.models import DataResult
-from app.services.watchlist_snapshot import build_watchlist_snapshot
+from app.services.watchlist_snapshot import build_watchlist_snapshot, get_ticker_detail
+from tests.routing_fake import RoutingFakeClient
 
 
 class FakeClient:
@@ -50,3 +53,46 @@ def test_build_watchlist_snapshot_has_expected_columns():
     frame = build_watchlist_snapshot(FakeClient(), ["AAPL"], "SPY", {"large_move_1d": 0.01, "valuation_industry_gap": 0.2})
     assert {"symbol", "return_1d", "beta_1y", "alert_count", "recent_news_7d"}.issubset(frame.columns)
     assert frame.iloc[0]["symbol"] == "AAPL"
+
+
+class _PlainDatetimePriceClient(RoutingFakeClient):
+    """Price history max() is plain datetime (not pandas Timestamp) to cover as_of branch."""
+
+    def get_prices(self, symbol, force_refresh=False):
+        return DataResult(
+            pd.DataFrame(
+                {
+                    "report_date": pd.Series([datetime(2024, 6, 1), datetime(2024, 6, 2)], dtype=object),
+                    "close": [1.0, 2.0],
+                }
+            )
+        )
+
+
+def test_get_ticker_detail_as_of_plain_datetime_max():
+    bundle = get_ticker_detail(_PlainDatetimePriceClient(), "AAPL", [], force_refresh=False)
+    assert bundle.as_of == datetime(2024, 6, 2)
+
+
+def test_get_ticker_detail_as_of_none_when_price_empty():
+    class _EmptyPrice(RoutingFakeClient):
+        def get_prices(self, symbol, force_refresh=False):
+            return DataResult(pd.DataFrame())
+
+    assert get_ticker_detail(_EmptyPrice(), "AAPL", [], force_refresh=False).as_of is None
+
+
+def test_get_ticker_detail_as_of_none_when_no_report_date_column():
+    class _NoDate(RoutingFakeClient):
+        def get_prices(self, symbol, force_refresh=False):
+            return DataResult(pd.DataFrame({"close": [1.0]}))
+
+    assert get_ticker_detail(_NoDate(), "AAPL", [], force_refresh=False).as_of is None
+
+
+def test_get_ticker_detail_as_of_none_when_report_dates_all_nat():
+    class _AllNaT(RoutingFakeClient):
+        def get_prices(self, symbol, force_refresh=False):
+            return DataResult(pd.DataFrame({"report_date": [pd.NaT, pd.NaT], "close": [1.0, 2.0]}))
+
+    assert get_ticker_detail(_AllNaT(), "AAPL", [], force_refresh=False).as_of is None

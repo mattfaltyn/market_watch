@@ -10,7 +10,7 @@
 |-------|------|
 | **UI** | Dash layout callbacks, [`app/components/ui.py`](../app/components/ui.py) |
 | **Pages** | Route-specific composition in [`app/pages/`](../app/pages/) |
-| **Services** | Regime, VAMS, portfolio, market snapshots in [`app/services/`](../app/services/) |
+| **Services** | Regime, VAMS, market snapshots in [`app/services/`](../app/services/) |
 | **Data** | [`MarketDataClient`](../app/data/yfinance_client.py) wraps **yfinance** (Yahoo Finance) with [`FileCache`](../app/data/cache.py) for pickled frames |
 | **Config** | [`app/config.py`](../app/config.py) loads [`config/settings.yaml`](../config/settings.yaml) |
 
@@ -23,9 +23,9 @@ flowchart LR
   end
   subgraph services [Services]
     regime_hist[regime_history]
+    regime_frame[regime_frame]
     kiss_reg[kiss_regime]
     vams[vams]
-    portfolio[kiss_portfolio]
     mkt[market_snapshot]
     wl[watchlist_snapshot]
   end
@@ -37,13 +37,12 @@ flowchart LR
   main --> regime_hist
   main --> kiss_reg
   main --> vams
-  main --> portfolio
   main --> mkt
   main --> wl
-  regime_hist --> client
-  kiss_reg --> client
+  regime_hist --> regime_frame
+  regime_frame --> client
+  kiss_reg --> regime_frame
   vams --> client
-  portfolio --> client
   mkt --> client
   wl --> client
   client --> cache
@@ -52,12 +51,12 @@ flowchart LR
 
 ## Core services
 
-- **`kiss_regime`** — Current macro quadrant from growth/inflation proxy scores (point-in-time).
+- **`regime_frame`** — `build_regime_composite_frame`: outer-merge proxy series, forward-fill, and composite growth/inflation scores (shared by live regime and history replay).
+- **`kiss_regime`** — Current macro quadrant from the last row of the composite frame.
 - **`regime_history`** — Historical replay of the same proxy logic, indicator tape snapshots, confirmation bundles, and transition strips (`build_regime_overview_snapshot`).
 - **`vams`** — Trend, momentum, volatility scoring; `get_vams_signal_history` for replay.
-- **`kiss_portfolio`** — Legacy target/actual weights for `/implementation` only.
-- **`market_snapshot` / signals`** — Market-wide and per-symbol alert context.
-- **`watchlist_snapshot`** — Watchlist rows and ticker detail bundles for `/ticker/<symbol>`.
+- **`market_snapshot`** — Benchmark indices, participation, and rates (`RatesSnapshot.spread_10y_short_proxy` for the 10Y − 5Y proxy spread).
+- **`watchlist_snapshot`** — Watchlist rows and ticker detail bundles for `/watchlist` and `/ticker/<symbol>`.
 
 ## Price symbols and data sources
 
@@ -65,7 +64,7 @@ flowchart LR
 
 ## Regime inputs when data is missing
 
-[`kiss_regime`](../app/services/kiss_regime.py) records unavailable proxy components in `KissRegime.unavailable_components` and omits them from composite means. [`build_regime_overview_snapshot`](../app/services/regime_history.py) surfaces warnings on the regime and signals pages.
+[`kiss_regime`](../app/services/kiss_regime.py) records unavailable proxy components in `KissRegime.unavailable_components` and omits them from composite means. [`build_regime_overview_snapshot`](../app/services/regime_history.py) surfaces warnings on the Overview page.
 
 ## Models
 

@@ -1,7 +1,8 @@
 import pandas as pd
 
 from app.models import DataResult
-from app.services.regime_history import _build_regime_frame, build_regime_history, build_regime_overview_snapshot
+from app.services.regime_frame import build_regime_composite_frame
+from app.services.regime_history import build_regime_history, build_regime_overview_snapshot
 
 
 class FakeConfig:
@@ -114,7 +115,7 @@ def test_build_regime_frame_returns_empty_when_all_price_series_missing():
         def get_yield_series(self, force_refresh=False):
             return DataResult(pd.DataFrame())
 
-    out = _build_regime_frame(EmptyClient(), FakeConfig())
+    out = build_regime_composite_frame(EmptyClient(), FakeConfig())
     assert out.empty
 
 
@@ -156,8 +157,30 @@ def test_build_regime_frame_returns_empty_when_no_growth_columns_after_merge():
                 )
             )
 
-    out = _build_regime_frame(GrowthEmptyClient(), FakeConfig())
+    out = build_regime_composite_frame(GrowthEmptyClient(), FakeConfig())
     assert out.empty
+
+
+def test_build_regime_overview_snapshot_skips_regime_transition_when_history_empty(monkeypatch):
+    monkeypatch.setattr("app.services.regime_history.build_regime_history", lambda *a, **k: [])
+    client = FakeClient(
+        {
+            "SPY": _price_frame(100, 1.0),
+            "XLY": _price_frame(100, 0.8),
+            "XLP": _price_frame(100, 0.2),
+            "CPER": _price_frame(50, 0.5),
+            "GLD": _price_frame(100, -0.1),
+            "USO": _price_frame(100, -0.2),
+            "DBC": _price_frame(100, -0.1),
+            "QQQ": _price_frame(100, 0.7),
+            "IWM": _price_frame(100, 0.6),
+            "BTC-USD": _price_frame(1000, 5.0),
+            "AGG": _price_frame(100, 0.2),
+        },
+        pd.DataFrame({"report_date": pd.date_range("2024-01-01", periods=260, freq="B"), "bc10_year": [0.05 - i * 0.0001 for i in range(260)], "bc2_year": [0.045 - i * 0.00005 for i in range(260)]}),
+    )
+    snapshot = build_regime_overview_snapshot(client, FakeConfig())
+    assert snapshot.regime_history == []
 
 
 def test_build_regime_overview_snapshot_warnings_when_components_unavailable():

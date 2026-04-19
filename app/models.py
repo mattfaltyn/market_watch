@@ -65,9 +65,14 @@ class RatesSnapshot:
     y2: float | None
     y10: float | None
     y30: float | None
-    spread_10y_2y: float | None
+    spread_10y_short_proxy: float | None
     change_10y_5d: float | None
     change_10y_1m: float | None
+
+    @property
+    def spread_10y_2y(self) -> float | None:
+        """Deprecated alias; short end is a 5Y proxy (^FVX), not true 2Y."""
+        return self.spread_10y_short_proxy
 
 
 @dataclass(frozen=True)
@@ -216,6 +221,7 @@ class TickerDetailBundle:
     alerts: list[AlertFlag] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     role_label: str | None = None
+    as_of: datetime | None = None
 
 
 @dataclass(frozen=True)

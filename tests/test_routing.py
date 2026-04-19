@@ -13,21 +13,21 @@ def test_dispatch_overview_default_path():
     assert out is not None
 
 
-def test_dispatch_signals():
+def test_dispatch_markets():
     cfg = load_config()
-    out = dispatch_page("/signals", {"refresh": 0}, "url", client=RoutingFakeClient(), config=cfg)
+    out = dispatch_page("/markets", {"refresh": 0}, "url", client=RoutingFakeClient(), config=cfg)
     assert out is not None
 
 
-def test_dispatch_implementation():
-    cfg = load_config()
-    out = dispatch_page("/implementation", {"refresh": 0}, "url", client=RoutingFakeClient(), config=cfg)
-    assert out is not None
-
-
-def test_dispatch_market_watch():
+def test_dispatch_market_watch_redirects():
     cfg = load_config()
     out = dispatch_page("/market-watch", {"refresh": 0}, "url", client=RoutingFakeClient(), config=cfg)
+    assert out is not None
+
+
+def test_dispatch_watchlist():
+    cfg = load_config()
+    out = dispatch_page("/watchlist", {"refresh": 0}, "url", client=RoutingFakeClient(), config=cfg)
     assert out is not None
 
 

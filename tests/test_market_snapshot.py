@@ -88,4 +88,5 @@ def test_build_rates_snapshot_full():
     c = MiniClient({}, y)
     rates = build_rates_snapshot(c)
     assert rates.y10 is not None
-    assert rates.spread_10y_2y is not None
+    assert rates.spread_10y_short_proxy is not None
+    assert rates.spread_10y_2y == rates.spread_10y_short_proxy

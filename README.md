@@ -62,7 +62,7 @@ In the current product, those states are interpreted as:
 - `AGG` = bond confirmation
 - `BTC-USD` = risk appetite confirmation
 
-**Data sources:** Prices, treasury proxies, S&P 500 annual history, and ticker fundamentals/news load through **`yfinance`** (Yahoo Finance). Tiles may show **via Yahoo Finance**. Treasury **10Y–2Y** spread uses a **5Y index proxy** (`^FVX`) for the short end (see [docs/data-and-caching.md](docs/data-and-caching.md)). Regime proxy inputs with no data are called out in warnings and omitted from composite means (see [docs/architecture.md](docs/architecture.md)).
+**Data sources:** Prices, treasury proxies, S&P 500 annual history, and ticker fundamentals/news load through **`yfinance`** (Yahoo Finance). Tiles may show **via Yahoo Finance**. The **10Y − 5Y (proxy)** spread uses the **`bc2_year`** column, which is populated from the **5Y** index proxy `^FVX` (not a true 2Y; see [docs/data-and-caching.md](docs/data-and-caching.md)). Regime proxy inputs with no data are called out in warnings and omitted from composite means (see [docs/architecture.md](docs/architecture.md)).
 
 ## Signal Design
 
@@ -105,11 +105,10 @@ The app does not rely on in-session app memory for these transitions.
 
 ## Routes
 
-- `/`: regime overview homepage with quadrant, transitions, indicator tape, and confirmation assets.
-- `/signals`: detailed regime diagnostics, historical replay, decomposition, and VAMS confirmation state.
-- `/market-watch`: broader macro telemetry wall for indicators, yields, commodities, and participation.
+- `/`: **Overview** — regime hero, quadrant, transitions, confirmation assets, indicator tape, and diagnostics (merged former Signals content).
+- `/markets`: macro telemetry (benchmark tape, rates, curve, breadth, participation, S&P context). Old URL `/market-watch` redirects here.
+- `/watchlist`: watchlist snapshot table with links to tickers.
 - `/ticker/<symbol>`: regime intelligence drill-down for configured sleeves and supported symbols.
-- `/implementation`: legacy allocation route retained temporarily, but no longer part of the primary product framing.
 
 ## Run
 
@@ -128,12 +127,10 @@ Methodology is configured in [config/settings.yaml](config/settings.yaml).
 
 Key sections:
 
-- `kiss.sleeves`: symbol mapping for confirmation assets and the legacy allocation route
-- `kiss.base_weights`: retained for the legacy implementation route
-- `kiss.regime_rules`: retained for the legacy implementation route
-- `kiss.vams_multipliers`: VAMS thresholds and multipliers used by confirmation logic and the legacy implementation route
+- `kiss.sleeves`: symbol mapping for confirmation assets
+- `kiss.base_weights` / `kiss.regime_rules` / `kiss.vams_multipliers`: methodology and VAMS parameters used by confirmation logic
 - `kiss.regime_inputs`: proxy symbols and weak-score threshold for macro classification
-- `kiss.market_watch_symbols`: symbols shown on the supporting market-watch page
+- `kiss.market_watch_symbols`: symbols shown on the Markets page and related snapshots
 - `alert_thresholds`: VAMS state thresholds, large move thresholds, and volatility limits
 - `chart_windows`: moving-average and lookback windows
 - `cache`: TTL configuration by data category
@@ -170,9 +167,9 @@ Optional app bootstrap check:
 
 - [app/main.py](app/main.py): Dash entrypoint and routing
 - [app/data/](app/data): file cache and `MarketDataClient` (`yfinance`)
-- [app/services/](app/services): KISS regime, regime history replay, VAMS confirmation, legacy portfolio construction, and supporting market logic
-- [app/pages/](app/pages): regime overview, legacy implementation, signals, market-watch, and ticker detail views
+- [app/services/](app/services): KISS regime, regime history replay, VAMS confirmation, and supporting market logic
+- [app/pages/](app/pages): overview, markets, watchlist, and ticker detail views
 - [config/](config): YAML methodology, sleeve mappings, and thresholds
-- [tests/](tests): cache, KISS services, signals, watchlist support, and page rendering tests
+- [tests/](tests): cache, KISS services, regime history, watchlist, and page rendering tests
 - [docs/](docs): technical documentation (architecture, configuration, caching, development, routing)
 - [AGENTS.md](AGENTS.md): contributor and agent guide

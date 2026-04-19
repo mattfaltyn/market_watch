@@ -129,6 +129,11 @@ def get_ticker_detail(client, symbol: str, alerts, force_refresh: bool = False, 
         "eps_yoy_growth": client.get_metric_frame(symbol, "quarterly_eps_yoy_growth", force_refresh=force_refresh).data,
     }
     errors = info.errors + price.errors + news.errors + calendar.errors
+    as_of = None
+    if not price.data.empty and "report_date" in price.data.columns:
+        ts = price.data["report_date"].max()
+        if ts is not None and not pd.isna(ts):
+            as_of = pd.Timestamp(ts).to_pydatetime()
     return TickerDetailBundle(
         symbol=symbol,
         info=info.data,
@@ -141,4 +146,5 @@ def get_ticker_detail(client, symbol: str, alerts, force_refresh: bool = False, 
         alerts=alerts,
         errors=errors,
         role_label=role_label,
+        as_of=as_of,
     )

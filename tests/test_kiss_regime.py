@@ -1,5 +1,8 @@
+from datetime import datetime
+
 import pandas as pd
 
+import app.services.kiss_regime as kiss_regime_mod
 from app.models import DataResult
 from app.services.kiss_regime import get_kiss_regime
 
@@ -32,6 +35,15 @@ class FakeClient:
 
     def last_price_source(self, symbol):
         return None
+
+    def get_price_ratio_history(self, symbol_a, symbol_b, force_refresh=False):
+        left = self.mapping[symbol_a][["report_date", "close"]].rename(columns={"close": "left"})
+        right = self.mapping[symbol_b][["report_date", "close"]].rename(columns={"close": "right"})
+        merged = left.merge(right, on="report_date")
+        if merged.empty:
+            return DataResult(pd.DataFrame(columns=["report_date", "ratio"]))
+        merged["ratio"] = merged["left"] / merged["right"]
+        return DataResult(merged[["report_date", "ratio"]])
 
     def get_yield_series(self, force_refresh=False):
         return DataResult(self.yields)
@@ -97,3 +109,56 @@ def test_get_kiss_regime_marks_unavailable_cyclical():
     regime = get_kiss_regime(client, FakeConfig())
     assert "cyclical_defensive_ratio" in regime.unavailable_components
     assert regime.component_scores["cyclical_defensive_ratio"] is None
+
+
+def test_get_kiss_regime_insufficient_history_returns_placeholder():
+    empty = pd.DataFrame(columns=["report_date", "close"])
+    client = FakeClient(
+        {sym: empty for sym in ("SPY", "XLY", "XLP", "CPER", "GLD", "USO", "DBC")},
+        pd.DataFrame(columns=["report_date", "bc10_year"]),
+    )
+    regime = get_kiss_regime(client, FakeConfig())
+    assert regime.regime == "deflation"
+    assert "Insufficient overlapping history" in regime.reasons[0]
+
+
+def test_get_kiss_regime_as_of_timestamp_converts_to_datetime(monkeypatch):
+    frame = pd.DataFrame(
+        {
+            "report_date": [pd.Timestamp("2024-06-01", tz="UTC")],
+            "growth_score": [0.2],
+            "inflation_score": [-0.1],
+            "regime": ["goldilocks"],
+            "regime_strength": [0.15],
+            "equity_trend": [0.2],
+            "cyclical_defensive_ratio": [0.1],
+            "copper_gold_ratio": [0.0],
+            "oil_trend": [-0.05],
+            "commodity_trend": [-0.02],
+            "yield_trend": [-0.1],
+        }
+    )
+    monkeypatch.setattr(kiss_regime_mod, "build_regime_composite_frame", lambda *a, **k: frame)
+    regime = get_kiss_regime(object(), FakeConfig())
+    assert regime.as_of == pd.Timestamp("2024-06-01", tz="UTC").to_pydatetime()
+
+
+def test_get_kiss_regime_as_of_plain_datetime(monkeypatch):
+    frame = pd.DataFrame(
+        {
+            "report_date": [datetime(2024, 6, 1, 12, 0, 0)],
+            "growth_score": [0.2],
+            "inflation_score": [-0.1],
+            "regime": ["goldilocks"],
+            "regime_strength": [0.15],
+            "equity_trend": [0.2],
+            "cyclical_defensive_ratio": [0.1],
+            "copper_gold_ratio": [0.0],
+            "oil_trend": [-0.05],
+            "commodity_trend": [-0.02],
+            "yield_trend": [-0.1],
+        }
+    )
+    monkeypatch.setattr(kiss_regime_mod, "build_regime_composite_frame", lambda *a, **k: frame)
+    regime = get_kiss_regime(object(), FakeConfig())
+    assert regime.as_of == datetime(2024, 6, 1, 12, 0, 0)

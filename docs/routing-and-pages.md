@@ -4,17 +4,18 @@ Routing is implemented in the `route` callback in [`app/main.py`](../app/main.py
 
 | Path | Renderer | Notes |
 |------|----------|--------|
-| `/` (default) | [`render_regime_overview`](../app/pages/overview.py) | Uses `build_regime_overview_snapshot` — quadrant, transitions, tape, confirmations. |
-| `/signals` | [`render_signals`](../app/pages/signals.py) | Same snapshot; charts and tables for regime history and confirmation. |
-| `/market-watch` | [`render_market_watch`](../app/pages/market_watch.py) | Market snapshot, rates, SP500 history, indicator list from config. |
-| `/implementation` | [`render_implementation`](../app/pages/implementation.py) | Legacy KISS portfolio snapshot (`get_kiss_regime` + `get_vams_signals` + `build_kiss_portfolio_snapshot`). |
-| `/ticker/<symbol>` | [`render_ticker_detail`](../app/pages/ticker_detail.py) | Symbol must be in `market_watch_symbols` or `sleeve_symbols`. |
+| `/` (default) | [`render_regime_overview`](../app/pages/overview.py) | Merged regime + diagnostics: quadrant, transitions, indicator tape, confirmation cards, accordion for signals-style detail. Uses `build_regime_overview_snapshot`. |
+| `/markets` | [`render_markets`](../app/pages/markets.py) | Benchmark tape, rates (levels vs deltas), yield curve, breadth, participation, S&P context chart. |
+| `/watchlist` | [`render_watchlist`](../app/pages/watchlist.py) | Watchlist table with links to ticker drill-downs. |
+| `/ticker/<symbol>` | [`render_ticker_detail`](../app/pages/ticker_detail.py) | Price/MAs, valuation, quality/growth, alerts, news. Symbol must be in `market_watch_symbols` or sleeve symbols. |
+
+**Redirect:** `/market-watch` redirects to `/markets` (backward compatibility).
 
 Unknown paths fall through to the **regime overview** (same as `/`) in the current callback structure.
 
 ## Navigation shell
 
-Shared chrome and nav labels are built in [`app/components/ui.py`](../app/components/ui.py) (`app_shell`, active page ids: `regime`, `signals`, `market-watch`, etc.). Implementation is reachable by URL but may not appear in the primary nav.
+Shared chrome and nav are built with **dash-mantine-components** and helpers in [`app/components/layout.py`](../app/components/layout.py) / [`app/components/ui.py`](../app/components/ui.py) (`app_shell`, active page ids: `overview`, `markets`, `watchlist`, `ticker`).
 
 ## Errors
 
