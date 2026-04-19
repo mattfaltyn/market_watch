@@ -44,7 +44,8 @@ def _benchmark_tiles(snapshot: RegimeOverviewSnapshot) -> list[html.Div]:
             delta = "Insufficient history"
             tone = "neutral_state"
         price = f"{indicator.latest_value:,.2f}" if indicator.latest_value is not None else "Unavailable"
-        tiles.append(benchmark_card(symbol, price, delta, tone))
+        src_note = "via Yahoo Finance" if getattr(indicator, "source", None) == "yfinance" else None
+        tiles.append(benchmark_card(symbol, price, delta, tone, source_note=src_note))
     return tiles
 
 
@@ -100,11 +101,11 @@ def render_regime_overview(snapshot: RegimeOverviewSnapshot, errors: list[str]):
         )
 
     growth_heat = heatstrip(
-        [regime.component_scores.get("equity_trend", 0.0), regime.component_scores.get("cyclical_defensive_ratio", 0.0), regime.component_scores.get("copper_gold_ratio", 0.0)],
+        [regime.component_scores.get("equity_trend"), regime.component_scores.get("cyclical_defensive_ratio"), regime.component_scores.get("copper_gold_ratio")],
         ["EQUITY", "CYCLICAL", "COPPER/GOLD"],
     )
     inflation_heat = heatstrip(
-        [regime.component_scores.get("oil_trend", 0.0), regime.component_scores.get("commodity_trend", 0.0), regime.component_scores.get("yield_trend", 0.0)],
+        [regime.component_scores.get("oil_trend"), regime.component_scores.get("commodity_trend"), regime.component_scores.get("yield_trend")],
         ["OIL", "COMMODITY", "10Y YIELD"],
     )
 

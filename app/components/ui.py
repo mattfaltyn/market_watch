@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Callable, Iterable, Sequence
+from typing import Callable, Iterable, Literal, Sequence
 
 import dash
 from dash import dash_table, dcc, html
@@ -177,16 +177,19 @@ def metric_card(card: MetricCard) -> html.Div:
     )
 
 
-def benchmark_card(symbol: str, price: str, delta: str, tone: str) -> html.Div:
+def benchmark_card(symbol: str, price: str, delta: str, tone: str, source_note: str | None = None) -> html.Div:
     color = _sleeve_color(symbol)
     mapped = "neutral_state" if tone == "neutral" else tone
+    children: list = [
+        html.Div(className="benchmark-head", children=[html.Div(className="symbol-dot", style={"backgroundColor": color}), html.Div(symbol, className="benchmark-symbol")]),
+        html.Div(price, className="benchmark-price"),
+        html.Div(delta, className="benchmark-returns"),
+    ]
+    if source_note:
+        children.append(html.Div(source_note, className="benchmark-source-note"))
     return html.Div(
         className=f"benchmark-tile tone-{mapped}",
-        children=[
-            html.Div(className="benchmark-head", children=[html.Div(className="symbol-dot", style={"backgroundColor": color}), html.Div(symbol, className="benchmark-symbol")]),
-            html.Div(price, className="benchmark-price"),
-            html.Div(delta, className="benchmark-returns"),
-        ],
+        children=children,
     )
 
 
@@ -523,15 +526,30 @@ def transition_strip(changes: list[SignalTransition]) -> html.Div:
     return html.Div(className="delta-strip", children=items)
 
 
-def heatstrip(values: Sequence[float], labels: Sequence[str], semantic_map: dict[str, str] | None = None) -> html.Div:
+def heatstrip(
+    values: Sequence[float | None],
+    labels: Sequence[str],
+    semantic_map: dict[str, str] | None = None,
+    value_format: Literal["float", "percent", "yield"] = "float",
+) -> html.Div:
     semantic_map = semantic_map or {}
     cells = []
     for label, value in zip(labels, values):
-        tone = semantic_map.get(label, "market" if value >= 0 else "negative")
+        if value is None:
+            tone = "neutral_state"
+            text = "—"
+        else:
+            tone = semantic_map.get(label, "market" if value >= 0 else "negative")
+            if value_format == "percent":
+                text = f"{value:+.1%}"
+            elif value_format == "yield":
+                text = f"{value:+.2%}"
+            else:
+                text = f"{value:+.2f}"
         cells.append(
             html.Div(
                 className=f"heat-cell tone-{tone if tone != 'neutral' else 'neutral_state'}",
-                children=[html.Div(label, className="heat-label"), html.Div(f"{value:+.2f}", className="heat-value")],
+                children=[html.Div(label, className="heat-label"), html.Div(text, className="heat-value")],
             )
         )
     return html.Div(className="heatstrip", children=cells)
@@ -769,6 +787,7 @@ a { color: #d5e7f7; text-decoration: none; font-weight: 600; }
 .benchmark-symbol, .sleeve-symbol { font-size: 13px; font-weight: 700; letter-spacing: 0.10em; }
 .benchmark-price { font-size: 26px; font-weight: 700; letter-spacing: -0.04em; }
 .benchmark-returns { font-size: 12px; color: var(--text-muted); }
+.benchmark-source-note { font-size: 10px; color: var(--text-muted); letter-spacing: 0.04em; }
 .allocation-band { display: grid; gap: 14px; }
 .allocation-legend { display: flex; gap: 12px; flex-wrap: wrap; }
 .legend-item { display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 12px; }

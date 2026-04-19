@@ -25,10 +25,13 @@ class DefeatBetaClient:
         cache: FileCache,
         policy: CachePolicy | None = None,
         price_fetch_overrides: dict[str, str] | None = None,
+        fallback_fetcher: Callable[[str], pd.DataFrame] | None = None,
     ) -> None:
         self.cache = cache
         self.policy = policy or CachePolicy()
         self._price_fetch_overrides = price_fetch_overrides or {}
+        self._fallback_fetcher = fallback_fetcher
+        self._price_source_by_symbol: dict[str, str] = {}
         self._ticker_cls = None
         self._treasure_cls = None
         self._util_module = None
@@ -92,16 +95,55 @@ class DefeatBetaClient:
         self._lazy_import()
         return self._ticker_cls(symbol)
 
+    def _defeatbeta_price_cache_key(self, symbol: str, fetch_symbol: str) -> str:
+        sym_u = symbol.upper()
+        fs_u = fetch_symbol.upper()
+        if fs_u == sym_u:
+            return f"{symbol}_price__src_defeatbeta"
+        return f"{symbol}_price__via_{fetch_symbol}__src_defeatbeta"
+
+    def last_price_source(self, symbol: str) -> str | None:
+        """``defeatbeta`` or ``yfinance`` for the last successful ``get_prices`` for this logical symbol."""
+        return self._price_source_by_symbol.get(symbol.upper())
+
     def get_prices(self, symbol: str, force_refresh: bool = False) -> DataResult:
         fetch_symbol = self._resolve_price_fetch_symbol(symbol)
+        sym_u = symbol.upper()
+        primary_key = self._defeatbeta_price_cache_key(symbol, fetch_symbol)
         ticker = self._ticker(fetch_symbol)
-        cache_key = f"{symbol}_price" if fetch_symbol == symbol else f"{symbol}_price__via_{fetch_symbol}"
-        return self._safe_cached_frame(
-            key=cache_key,
+        primary = self._safe_cached_frame(
+            key=primary_key,
             ttl=self.policy.market_ttl_seconds,
             loader=ticker.price,
             force_refresh=force_refresh,
         )
+        errors = list(primary.errors)
+        data = primary.data
+        if not data.empty and "close" in data.columns:
+            self._price_source_by_symbol[sym_u] = "defeatbeta"
+            return DataResult(data=data, errors=errors)
+
+        if self._fallback_fetcher is None:
+            self._price_source_by_symbol.pop(sym_u, None)
+            return DataResult(data=pd.DataFrame(), errors=errors)
+
+        def yf_loader() -> pd.DataFrame:
+            return self._normalize_frame(self._fallback_fetcher(symbol))
+
+        fb_key = f"{symbol}_price__src_yfinance"
+        fallback = self._safe_cached_frame(
+            key=fb_key,
+            ttl=self.policy.market_ttl_seconds,
+            loader=yf_loader,
+            force_refresh=force_refresh,
+        )
+        errors.extend(fallback.errors)
+        if not fallback.data.empty and "close" in fallback.data.columns:
+            self._price_source_by_symbol[sym_u] = "yfinance"
+            return DataResult(data=fallback.data, errors=errors)
+
+        self._price_source_by_symbol.pop(sym_u, None)
+        return DataResult(data=pd.DataFrame(), errors=errors)
 
     def get_return_series(self, symbol: str, lookbacks: list[int], force_refresh: bool = False) -> DataResult:
         price_result = self.get_prices(symbol, force_refresh=force_refresh)

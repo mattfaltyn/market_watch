@@ -1,8 +1,8 @@
 # Data and caching
 
-## defeatbeta-api
+## defeatbeta-api and Yahoo Finance
 
-The app depends on **`defeatbeta-api`** for market and treasury data. Initial loads and cache misses require **network access** to the library’s upstream dataset behavior (see package documentation).
+The app depends on **`defeatbeta-api`** for market and treasury data. Initial loads and cache misses require **network access** to the library’s upstream dataset behavior (see package documentation). When a **logical** price symbol has no defeatbeta history, **`yfinance`** loads Yahoo Finance history for the same ticker (see [`app/data/yfinance_client.py`](../app/data/yfinance_client.py)).
 
 If calls fail, callbacks in [`app/main.py`](../app/main.py) surface [`fatal_error_page`](../app/components/ui.py) with guidance rather than a blank page.
 
@@ -10,7 +10,7 @@ If calls fail, callbacks in [`app/main.py`](../app/main.py) surface [`fatal_erro
 
 - **Location:** `<repo_root>/.cache/` — see `FileCache(ROOT_DIR / ".cache", ...)` in [`app/main.py`](../app/main.py).
 - **Mechanism:** [`FileCache.get_or_set`](../app/data/cache.py) pickles payloads with a timestamp; TTL is per-call from [`CachePolicy`](../app/data/defeatbeta_client.py).
-- **Keys:** Built in [`DefeatBetaClient._safe_cached_frame`](../app/data/defeatbeta_client.py). Price series use `"{symbol}_price"` when no override applies, or `"{symbol}_price__via_{fetch_symbol}"` when `price_fetch_overrides` redirects the fetch ticker (avoids reusing an empty cache entry under the old key).
+- **Keys:** Built in [`DefeatBetaClient._safe_cached_frame`](../app/data/defeatbeta_client.py). Price series use `"{symbol}_price__src_defeatbeta"` for the primary defeatbeta load, `"{symbol}_price__via_{fetch_symbol}__src_defeatbeta"` when `price_fetch_overrides` redirects the fetch ticker, and `"{symbol}_price__src_yfinance"` for the Yahoo fallback.
 
 ## Refresh behavior
 

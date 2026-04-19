@@ -44,7 +44,7 @@ Avoid adding broad `omit` globs in coverage config; prefer tests or a short, jus
 
 ## Fakes and network
 
-Unit tests use **fake clients** that implement only the methods the code under test calls (see [`tests/routing_fake.py`](../tests/routing_fake.py), [`tests/test_regime_history.py`](../tests/test_regime_history.py)). Avoid live network except where explicitly marked or isolated.
+Unit tests use **fake clients** that implement only the methods the code under test calls (see [`tests/routing_fake.py`](../tests/routing_fake.py), [`tests/test_regime_history.py`](../tests/test_regime_history.py)). Avoid live network except where explicitly marked or isolated. [`tests/test_yfinance_client.py`](../tests/test_yfinance_client.py) monkeypatches `yfinance.Ticker` so no live Yahoo calls are required.
 
 ## Deprecation warnings
 

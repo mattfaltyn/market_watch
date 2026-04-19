@@ -14,6 +14,9 @@ class MiniClient:
     def get_prices(self, symbol, force_refresh=False):
         return DataResult(self._prices.get(symbol, pd.DataFrame()))
 
+    def last_price_source(self, symbol):
+        return None
+
     def get_treasury_yields(self, force_refresh=False):
         return DataResult(self._yields)
 

@@ -79,3 +79,13 @@ def test_macro_allocation_sleeve():
 
 def test_heatstrip_semantic_map():
     assert ui.heatstrip([1.0, -1.0], ["a", "b"], semantic_map={"a": "neutral"}) is not None
+
+
+def test_heatstrip_value_formats_and_none():
+    assert ui.heatstrip([0.012, -0.03], ["a", "b"], value_format="percent") is not None
+    assert ui.heatstrip([0.0426, 0.0055], ["a", "b"], value_format="yield") is not None
+    assert ui.heatstrip([None, 0.1], ["a", "b"]) is not None
+
+
+def test_benchmark_card_source_note():
+    assert ui.benchmark_card("SPY", "100", "1D +1%", "positive", source_note="via Yahoo Finance") is not None

@@ -17,7 +17,7 @@ Local-first **KISS regime and market-indicators** dashboard built with **Plotly 
 | [`app/components/`](app/components/) | Reusable UI (`ui.py`, CSS constants) |
 | [`app/pages/`](app/pages/) | Per-route layout builders |
 | [`app/services/`](app/services/) | Regime, VAMS, regime history, portfolio, market, watchlist, signals |
-| [`app/data/`](app/data/) | `FileCache`, `DefeatBetaClient` |
+| [`app/data/`](app/data/) | `FileCache`, `DefeatBetaClient` (defeatbeta + optional yfinance fallback), `yfinance_client` |
 | [`config/settings.yaml`](config/settings.yaml) | Methodology, symbols, TTLs, `price_fetch_overrides` |
 | [`tests/`](tests/) | Pytest suite (fakes for defeatbeta-shaped clients) |
 | [`docs/`](docs/) | Architecture, configuration, caching, development, routing |
@@ -49,7 +49,7 @@ The default pytest invocation runs workers in parallel and enforces **100% branc
 
 - Primary file: [`config/settings.yaml`](config/settings.yaml).
 - Details: [`docs/configuration.md`](docs/configuration.md).
-- **Symbol coverage:** Not every logical ticker has a defeatbeta price series. Use `kiss.price_fetch_overrides` (see YAML) and [`docs/data-and-caching.md`](docs/data-and-caching.md).
+- **Symbol coverage:** Not every logical ticker has a defeatbeta price series; the client falls back to Yahoo Finance via `yfinance` before relying on `kiss.price_fetch_overrides`. See [`docs/data-and-caching.md`](docs/data-and-caching.md).
 
 ## Coding expectations
 
@@ -61,7 +61,7 @@ The default pytest invocation runs workers in parallel and enforces **100% branc
 ## Do not
 
 - Commit secrets, `.env`, or `.cache/` blobs.
-- Assume `get_prices(logical_symbol)` returns data without checking overrides / upstream coverage.
+- Assume `get_prices(logical_symbol)` always returns defeatbeta-shaped rows without considering fallbacks or empty upstream frames.
 - Add large generated artifacts or lockfiles unless the task explicitly requires them.
 
 ## Common tasks

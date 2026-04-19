@@ -49,6 +49,7 @@ class MarketIndexSnapshot:
     ma50_state: str
     ma200_state: str
     as_of: datetime | None
+    source: str | None = None
 
 
 @dataclass(frozen=True)
@@ -91,9 +92,10 @@ class KissRegime:
     hybrid_label: str | None
     growth_direction: Literal["up", "down"]
     inflation_direction: Literal["up", "down"]
-    component_scores: dict[str, float]
+    component_scores: dict[str, float | None]
     as_of: datetime | None
     reasons: list[str] = field(default_factory=list)
+    unavailable_components: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -115,6 +117,7 @@ class IndicatorSnapshot:
     trend_state: str
     volatility: float | None
     as_of: datetime | None
+    source: str | None = None
 
 
 @dataclass(frozen=True)
@@ -197,6 +200,7 @@ class RegimeOverviewSnapshot:
     transitions: list[SignalTransition]
     as_of: datetime | None
     summary_text: str
+    warnings: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

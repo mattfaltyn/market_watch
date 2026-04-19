@@ -229,6 +229,86 @@ def test_get_price_ratio_non_overlapping_dates(tmp_path: Path):
     assert out.data.empty
 
 
+def test_get_prices_yfinance_fallback_when_primary_empty(tmp_path: Path):
+    def fb(sym: str) -> pd.DataFrame:
+        return pd.DataFrame({"report_date": [pd.Timestamp("2024-01-05")], "close": [50.0]})
+
+    cache = FileCache(tmp_path, default_ttl_seconds=60)
+    client = DefeatBetaClient(cache, policy=CachePolicy(), fallback_fetcher=fb)
+
+    class EmptyTicker(FakeTicker):
+        def price(self):
+            return pd.DataFrame()
+
+    client._ticker_cls = EmptyTicker
+    r = client.get_prices("BTC-USD")
+    assert not r.data.empty
+    assert client.last_price_source("BTC-USD") == "yfinance"
+
+
+def test_get_prices_skips_fallback_when_defeatbeta_has_data(tmp_path: Path):
+    calls: list[str] = []
+
+    def fb(sym: str) -> pd.DataFrame:
+        calls.append(sym)
+        return pd.DataFrame()
+
+    cache = FileCache(tmp_path, default_ttl_seconds=60)
+    client = DefeatBetaClient(cache, policy=CachePolicy(), fallback_fetcher=fb)
+    client._ticker_cls = FakeTicker
+    r = client.get_prices("SPY")
+    assert not r.data.empty
+    assert client.last_price_source("SPY") == "defeatbeta"
+    assert calls == []
+
+
+def test_get_prices_empty_when_primary_and_fallback_empty(tmp_path: Path):
+    def fb(sym: str) -> pd.DataFrame:
+        return pd.DataFrame()
+
+    cache = FileCache(tmp_path, default_ttl_seconds=60)
+    client = DefeatBetaClient(cache, policy=CachePolicy(), fallback_fetcher=fb)
+
+    class EmptyTicker(FakeTicker):
+        def price(self):
+            return pd.DataFrame()
+
+    client._ticker_cls = EmptyTicker
+    r = client.get_prices("ZZZ")
+    assert r.data.empty
+    assert client.last_price_source("ZZZ") is None
+
+
+def test_get_prices_fallback_loader_exception_surfaces(tmp_path: Path):
+    def fb(sym: str) -> pd.DataFrame:
+        raise ValueError("boom")
+
+    cache = FileCache(tmp_path, default_ttl_seconds=60)
+    client = DefeatBetaClient(cache, policy=CachePolicy(), fallback_fetcher=fb)
+
+    class EmptyTicker(FakeTicker):
+        def price(self):
+            return pd.DataFrame()
+
+    client._ticker_cls = EmptyTicker
+    r = client.get_prices("X")
+    assert r.data.empty
+    assert any("boom" in e for e in r.errors)
+
+
+def test_get_prices_no_fallback_without_fetcher(tmp_path: Path):
+    cache = FileCache(tmp_path, default_ttl_seconds=60)
+    client = DefeatBetaClient(cache, policy=CachePolicy(), fallback_fetcher=None)
+
+    class EmptyTicker(FakeTicker):
+        def price(self):
+            return pd.DataFrame()
+
+    client._ticker_cls = EmptyTicker
+    r = client.get_prices("SPY")
+    assert r.data.empty
+
+
 def test_lazy_import_raises_when_defeatbeta_missing(monkeypatch, tmp_path: Path):
     real_import = builtins.__import__
 

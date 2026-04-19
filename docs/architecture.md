@@ -11,7 +11,7 @@
 | **UI** | Dash layout callbacks, [`app/components/ui.py`](../app/components/ui.py) |
 | **Pages** | Route-specific composition in [`app/pages/`](../app/pages/) |
 | **Services** | Regime, VAMS, portfolio, market snapshots in [`app/services/`](../app/services/) |
-| **Data** | [`DefeatBetaClient`](../app/data/defeatbeta_client.py) wraps `defeatbeta-api`; [`FileCache`](../app/data/cache.py) persists pickled frames |
+| **Data** | [`DefeatBetaClient`](../app/data/defeatbeta_client.py) wraps `defeatbeta-api` with optional [`yfinance`](../app/data/yfinance_client.py) fallback for missing series; [`FileCache`](../app/data/cache.py) persists pickled frames |
 | **Config** | [`app/config.py`](../app/config.py) loads [`config/settings.yaml`](../config/settings.yaml) |
 
 ## Data flow
@@ -30,7 +30,8 @@ flowchart LR
     wl[watchlist_snapshot]
   end
   subgraph data [Data layer]
-    client[defeatbeta_client]
+    client[DefeatBetaClient]
+    yf[yfinance_client]
     cache[FileCache]
   end
   main --> regime_hist
@@ -45,6 +46,7 @@ flowchart LR
   portfolio --> client
   mkt --> client
   wl --> client
+  client --> yf
   client --> cache
 ```
 
@@ -57,9 +59,13 @@ flowchart LR
 - **`market_snapshot` / signals`** — Market-wide and per-symbol alert context.
 - **`watchlist_snapshot`** — Watchlist rows and ticker detail bundles for `/ticker/<symbol>`.
 
-## Price symbols and overrides
+## Price symbols and data sources
 
-Logical symbols (e.g. sleeve labels `AGG`, `BTC-USD`) may map to **different** defeatbeta tickers via `kiss.price_fetch_overrides` in settings. The client resolves the fetch ticker in [`DefeatBetaClient.get_prices`](../app/data/defeatbeta_client.py) while keeping cache keys tied to the **logical** symbol so the UI and models stay stable. See [configuration.md](configuration.md).
+[`DefeatBetaClient.get_prices`](../app/data/defeatbeta_client.py) loads the **logical** symbol from defeatbeta first. If the series is empty, it falls back to Yahoo Finance via [`fetch_prices_yfinance`](../app/data/yfinance_client.py) (same column shape). [`last_price_source`](../app/data/defeatbeta_client.py) records `defeatbeta` vs `yfinance` for optional UI labels. Optionally, `kiss.price_fetch_overrides` can still map a logical symbol to another defeatbeta ticker before the yfinance step. See [configuration.md](configuration.md) and [data-and-caching.md](data-and-caching.md).
+
+## Regime inputs when data is missing
+
+[`kiss_regime`](../app/services/kiss_regime.py) records unavailable proxy components in `KissRegime.unavailable_components` and omits them from composite means. [`build_regime_overview_snapshot`](../app/services/regime_history.py) surfaces warnings on the regime and signals pages.
 
 ## Models
 

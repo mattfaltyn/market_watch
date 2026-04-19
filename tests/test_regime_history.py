@@ -1,7 +1,7 @@
 import pandas as pd
 
 from app.models import DataResult
-from app.services.regime_history import build_regime_history, build_regime_overview_snapshot
+from app.services.regime_history import _build_regime_frame, build_regime_history, build_regime_overview_snapshot
 
 
 class FakeConfig:
@@ -32,6 +32,9 @@ class FakeClient:
 
     def get_prices(self, symbol, force_refresh=False):
         return DataResult(self.mapping[symbol])
+
+    def last_price_source(self, symbol):
+        return None
 
     def get_price_ratio_history(self, symbol_a, symbol_b, force_refresh=False):
         left = self.mapping[symbol_a][["report_date", "close"]].rename(columns={"close": "left"})
@@ -98,3 +101,82 @@ def test_build_regime_overview_snapshot_is_history_backed():
     snapshot = build_regime_overview_snapshot(client, FakeConfig())
     assert snapshot.transitions
     assert snapshot.confirmations
+
+
+def test_build_regime_frame_returns_empty_when_all_price_series_missing():
+    class EmptyClient:
+        def get_prices(self, symbol, force_refresh=False):
+            return DataResult(pd.DataFrame())
+
+        def get_price_ratio_history(self, symbol_a, symbol_b, force_refresh=False):
+            return DataResult(pd.DataFrame())
+
+        def get_yield_series(self, force_refresh=False):
+            return DataResult(pd.DataFrame())
+
+    out = _build_regime_frame(EmptyClient(), FakeConfig())
+    assert out.empty
+
+
+def test_build_regime_frame_returns_empty_when_no_growth_columns_after_merge():
+    """Inflation-only frames merge to rows but growth score columns are absent."""
+
+    def pf():
+        return pd.DataFrame(
+            {"report_date": pd.date_range("2024-01-01", periods=260, freq="B"), "close": [100.0 + i * 0.01 for i in range(260)]}
+        )
+
+    class GrowthEmptyClient:
+        def get_prices(self, symbol, force_refresh=False):
+            if symbol in ("SPY", "XLY", "XLP", "CPER", "GLD"):
+                return DataResult(pd.DataFrame())
+            return DataResult(pf())
+
+        def get_price_ratio_history(self, symbol_a, symbol_b, force_refresh=False):
+            left_df = self.get_prices(symbol_a).data
+            right_df = self.get_prices(symbol_b).data
+            if left_df.empty or right_df.empty or "close" not in left_df.columns or "close" not in right_df.columns:
+                return DataResult(pd.DataFrame())
+            left = left_df[["report_date", "close"]].rename(columns={"close": "left"})
+            right = right_df[["report_date", "close"]].rename(columns={"close": "right"})
+            merged = left.merge(right, on="report_date")
+            if merged.empty:
+                return DataResult(pd.DataFrame())
+            merged["ratio"] = merged["left"] / merged["right"]
+            return DataResult(merged[["report_date", "ratio"]])
+
+        def get_yield_series(self, force_refresh=False):
+            return DataResult(
+                pd.DataFrame(
+                    {
+                        "report_date": pd.date_range("2024-01-01", periods=260, freq="B"),
+                        "bc10_year": [0.05 - i * 0.0001 for i in range(260)],
+                        "bc2_year": [0.045 - i * 0.00005 for i in range(260)],
+                    }
+                )
+            )
+
+    out = _build_regime_frame(GrowthEmptyClient(), FakeConfig())
+    assert out.empty
+
+
+def test_build_regime_overview_snapshot_warnings_when_components_unavailable():
+    empty = pd.DataFrame(columns=["report_date", "close"])
+    client = FakeClient(
+        {
+            "SPY": _price_frame(100, 1.0),
+            "XLY": empty,
+            "XLP": _price_frame(100, 0.2),
+            "CPER": _price_frame(50, 0.5),
+            "GLD": _price_frame(100, -0.1),
+            "USO": _price_frame(100, -0.2),
+            "DBC": _price_frame(100, -0.1),
+            "QQQ": _price_frame(100, 0.7),
+            "IWM": _price_frame(100, 0.6),
+            "BTC-USD": _price_frame(1000, 5.0),
+            "AGG": _price_frame(100, 0.2),
+        },
+        pd.DataFrame({"report_date": pd.date_range("2024-01-01", periods=260, freq="B"), "bc10_year": [0.05 - i * 0.0001 for i in range(260)], "bc2_year": [0.045 - i * 0.00005 for i in range(260)]}),
+    )
+    snapshot = build_regime_overview_snapshot(client, FakeConfig())
+    assert snapshot.warnings

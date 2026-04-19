@@ -222,11 +222,11 @@ def test_vams_fallback_all_zero_closes():
 
 def test_kiss_regime_trend_zero_ma():
     close = pd.Series([0.0] * 60)
-    assert kr._trend_score(close, 50) == 0.0
+    assert kr._trend_score_optional(close, 50) is None
 
 
 def test_kiss_regime_trend_short_series():
-    assert kr._trend_score(pd.Series([1.0] * 10), 50) == 0.0
+    assert kr._trend_score_optional(pd.Series([1.0] * 10), 50) is None
 
 
 def test_kiss_regime_ratio_empty_paths():
@@ -236,19 +236,31 @@ def test_kiss_regime_ratio_empty_paths():
                 return DataResult(pd.DataFrame({"report_date": [pd.Timestamp("2024-01-01")], "close": [1.0]}))
             return DataResult(pd.DataFrame({"report_date": [pd.Timestamp("2025-01-01")], "close": [1.0]}))
 
-    assert kr._ratio_trend(Split(), "A", "B") == (0.0, None)
+    assert kr._ratio_trend(Split(), "A", "B") == (None, None)
 
     class LeftEmpty:
         def get_prices(self, sym, **kwargs):
             return DataResult(pd.DataFrame())
 
-    assert kr._ratio_trend(LeftEmpty(), "A", "B") == (0.0, None)
+    assert kr._ratio_trend(LeftEmpty(), "A", "B") == (None, None)
 
     class ZeroRatio:
         def get_prices(self, sym, **kwargs):
             return DataResult(pd.DataFrame({"report_date": [pd.Timestamp("2024-01-01")], "close": [0.0]}))
 
-    assert kr._ratio_trend(ZeroRatio(), "A", "B") == (0.0, None)
+    assert kr._ratio_trend(ZeroRatio(), "A", "B") == (None, None)
+
+
+def test_kiss_regime_ratio_all_nan_ratio_values():
+    class AllNanRatioDen:
+        def get_prices(self, sym, **kwargs):
+            if sym == "A":
+                return DataResult(
+                    pd.DataFrame({"report_date": [pd.Timestamp("2024-01-01")], "close": [float("nan")]})
+                )
+            return DataResult(pd.DataFrame({"report_date": [pd.Timestamp("2024-01-01")], "close": [1.0]}))
+
+    assert kr._ratio_trend(AllNanRatioDen(), "A", "B") == (None, None)
 
 
 def test_kiss_regime_latest_and_yield():
@@ -258,7 +270,7 @@ def test_kiss_regime_latest_and_yield():
         def get_yield_series(self, **kwargs):
             return DataResult(pd.DataFrame())
 
-    assert kr._yield_trend(EmptyYield(), "bc10_year") == (0.0, None)
+    assert kr._yield_trend(EmptyYield(), "bc10_year") == (None, None)
 
     class ShortYield:
         def get_yield_series(self, **kwargs):
@@ -272,7 +284,7 @@ def test_kiss_regime_latest_and_yield():
             )
 
     yv, _ts = kr._yield_trend(ShortYield(), "bc10_year")
-    assert yv == 0.0
+    assert yv is None
 
 
 def test_compute_regime_skips_monthly_yield_when_none():

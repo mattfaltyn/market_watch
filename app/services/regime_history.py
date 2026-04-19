@@ -67,15 +67,24 @@ def _build_regime_frame(client, config, force_refresh: bool = False) -> pd.DataF
     yield_trend = _yield_trend_series(client, inflation_cfg.get("yield_symbol", "bc10_year"), force_refresh=force_refresh).rename(columns={"score": "yield_trend"})
 
     frames = [equity, cyclical, copper, oil, commodity, yield_trend]
-    merged = None
-    for frame in frames:
-        merged = frame if merged is None else merged.merge(frame, on="report_date", how="inner")
-    if merged is None or merged.empty:
+    non_empty = [f for f in frames if not f.empty]
+    if not non_empty:
+        return pd.DataFrame(columns=["report_date", "growth_score", "inflation_score", "regime", "regime_strength"])
+
+    merged = non_empty[0]
+    for frame in non_empty[1:]:
+        merged = merged.merge(frame, on="report_date", how="inner")
+    if merged.empty:
         return pd.DataFrame(columns=["report_date", "growth_score", "inflation_score", "regime", "regime_strength"])
 
     merged = merged.sort_values("report_date")
-    merged["growth_score"] = merged[["equity_trend", "cyclical_defensive_ratio", "copper_gold_ratio"]].mean(axis=1)
-    merged["inflation_score"] = merged[["oil_trend", "commodity_trend", "yield_trend"]].mean(axis=1)
+    growth_cols = [c for c in ("equity_trend", "cyclical_defensive_ratio", "copper_gold_ratio") if c in merged.columns]
+    inflation_cols = [c for c in ("oil_trend", "commodity_trend", "yield_trend") if c in merged.columns]
+    if not growth_cols or not inflation_cols:
+        return pd.DataFrame(columns=["report_date", "growth_score", "inflation_score", "regime", "regime_strength"])
+
+    merged["growth_score"] = merged[growth_cols].mean(axis=1)
+    merged["inflation_score"] = merged[inflation_cols].mean(axis=1)
     merged["regime"] = merged.apply(lambda row: _classify_regime(float(row["growth_score"]), float(row["inflation_score"])), axis=1)
     merged["regime_strength"] = merged[["growth_score", "inflation_score"]].abs().mean(axis=1)
     return merged
@@ -125,13 +134,13 @@ def _latest_transition(label: str, states: list[str], dates: list[pd.Timestamp])
     )
 
 
-def _indicator_from_price(symbol: str, frame: pd.DataFrame) -> IndicatorSnapshot:
+def _indicator_from_price(symbol: str, frame: pd.DataFrame, source: str | None = None) -> IndicatorSnapshot:
     if frame.empty or "close" not in frame.columns:
-        return IndicatorSnapshot(symbol, None, None, None, None, "unavailable", None, None)
+        return IndicatorSnapshot(symbol, None, None, None, None, "unavailable", None, None, source)
     ordered = frame.sort_values("report_date")
     close = pd.to_numeric(ordered["close"], errors="coerce").dropna()
     if close.empty:
-        return IndicatorSnapshot(symbol, None, None, None, None, "unavailable", None, None)
+        return IndicatorSnapshot(symbol, None, None, None, None, "unavailable", None, None, source)
     returns = close.pct_change().dropna()
     trend = "above_50d" if len(close) >= 50 and close.iloc[-1] >= close.rolling(50).mean().iloc[-1] else "below_50d"
     return IndicatorSnapshot(
@@ -143,12 +152,17 @@ def _indicator_from_price(symbol: str, frame: pd.DataFrame) -> IndicatorSnapshot
         trend_state=trend,
         volatility=float(returns.tail(20).std() * (252 ** 0.5)) if len(returns) >= 20 else None,
         as_of=ordered["report_date"].max().to_pydatetime(),
+        source=source,
     )
 
 
 def _build_indicator_snapshots(client, config, force_refresh: bool = False) -> list[IndicatorSnapshot]:
     symbols = config.market_watch_symbols
-    indicators = [_indicator_from_price(symbol, client.get_prices(symbol, force_refresh=force_refresh).data) for symbol in symbols]
+    indicators = []
+    for symbol in symbols:
+        result = client.get_prices(symbol, force_refresh=force_refresh)
+        src = client.last_price_source(symbol) if hasattr(client, "last_price_source") else None
+        indicators.append(_indicator_from_price(symbol, result.data, src))
     rates = build_rates_snapshot(client, force_refresh=force_refresh)
     indicators.append(
         IndicatorSnapshot("10Y", rates.y10, None, rates.change_10y_5d, rates.change_10y_1m, "up" if (rates.change_10y_1m or 0) >= 0 else "down", None, rates.as_of)
@@ -210,6 +224,11 @@ def build_regime_overview_snapshot(client, config, force_refresh: bool = False) 
     summary_text = f"{regime.regime.title()} regime with growth {regime.growth_direction} and inflation {regime.inflation_direction}."
     as_of_candidates = [regime.as_of] + [indicator.as_of for indicator in indicators if indicator.as_of is not None]
     as_of = max((candidate for candidate in as_of_candidates if candidate is not None), default=None)
+    warnings: list[str] = []
+    if regime.unavailable_components:
+        warnings.append(
+            f"Some regime inputs had no data (excluded from composite): {', '.join(regime.unavailable_components)}."
+        )
     return RegimeOverviewSnapshot(
         regime=regime,
         regime_history=regime_history,
@@ -218,4 +237,5 @@ def build_regime_overview_snapshot(client, config, force_refresh: bool = False) 
         transitions=cleaned_transitions,
         as_of=as_of,
         summary_text=summary_text,
+        warnings=warnings,
     )

@@ -38,7 +38,9 @@ def render_signals(snapshot: RegimeOverviewSnapshot, errors: list[str]):
     inflation_score = snapshot.regime_history[-1].inflation_score if snapshot.regime_history else 0.0
     history_frame = _history_frame(snapshot)
 
-    proxy_rows = pd.DataFrame([{"Component": key, "Score": value} for key, value in regime.component_scores.items()])
+    proxy_rows = pd.DataFrame(
+        [{"Component": key, "Score": value} for key, value in regime.component_scores.items()]
+    )
     confirmation_rows = pd.DataFrame(
         [
             {
@@ -108,11 +110,11 @@ def render_signals(snapshot: RegimeOverviewSnapshot, errors: list[str]):
                 children=[
                     section_panel(
                         "Growth Decomposition",
-                        [heatstrip([regime.component_scores.get("equity_trend", 0.0), regime.component_scores.get("cyclical_defensive_ratio", 0.0), regime.component_scores.get("copper_gold_ratio", 0.0)], ["EQUITY", "CYCLICAL", "COPPER/GOLD"])],
+                        [heatstrip([regime.component_scores.get("equity_trend"), regime.component_scores.get("cyclical_defensive_ratio"), regime.component_scores.get("copper_gold_ratio")], ["EQUITY", "CYCLICAL", "COPPER/GOLD"])],
                     ),
                     section_panel(
                         "Inflation Decomposition",
-                        [heatstrip([regime.component_scores.get("oil_trend", 0.0), regime.component_scores.get("commodity_trend", 0.0), regime.component_scores.get("yield_trend", 0.0)], ["OIL", "COMMODITY", "10Y YIELD"])],
+                        [heatstrip([regime.component_scores.get("oil_trend"), regime.component_scores.get("commodity_trend"), regime.component_scores.get("yield_trend")], ["OIL", "COMMODITY", "10Y YIELD"])],
                     ),
                 ],
             ),

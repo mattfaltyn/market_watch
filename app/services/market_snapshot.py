@@ -29,6 +29,7 @@ def build_market_snapshot(client, symbols: list[str] | None = None, force_refres
 
     for symbol in symbols:
         result = client.get_prices(symbol, force_refresh=force_refresh)
+        src = client.last_price_source(symbol) if hasattr(client, "last_price_source") else None
         frame = result.data.sort_values("report_date") if not result.data.empty else pd.DataFrame()
         if frame.empty or "close" not in frame.columns:
             snapshots.append(
@@ -43,6 +44,7 @@ def build_market_snapshot(client, symbols: list[str] | None = None, force_refres
                     ma50_state="unavailable",
                     ma200_state="unavailable",
                     as_of=None,
+                    source=src,
                 )
             )
             continue
@@ -61,6 +63,7 @@ def build_market_snapshot(client, symbols: list[str] | None = None, force_refres
                 ma50_state=_ma_state(close, 50),
                 ma200_state=_ma_state(close, 200),
                 as_of=frame["report_date"].max().to_pydatetime() if "report_date" in frame.columns else None,
+                source=src,
             )
         )
 

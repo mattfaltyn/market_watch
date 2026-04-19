@@ -56,6 +56,9 @@ class RoutingFakeClient:
             raise RuntimeError("simulated upstream failure")
         return DataResult(self.mapping[symbol])
 
+    def last_price_source(self, symbol):
+        return None
+
     def get_price_ratio_history(self, symbol_a, symbol_b, force_refresh=False):
         left = self.mapping[symbol_a][["report_date", "close"]].rename(columns={"close": "left"})
         right = self.mapping[symbol_b][["report_date", "close"]].rename(columns={"close": "right"})

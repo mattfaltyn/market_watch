@@ -30,6 +30,9 @@ class FakeClient:
     def get_prices(self, symbol, force_refresh=False):
         return DataResult(self.mapping[symbol])
 
+    def last_price_source(self, symbol):
+        return None
+
     def get_yield_series(self, force_refresh=False):
         return DataResult(self.yields)
 
@@ -75,3 +78,22 @@ def test_get_kiss_regime_inflation():
     )
     regime = get_kiss_regime(client, FakeConfig())
     assert regime.regime == "inflation"
+
+
+def test_get_kiss_regime_marks_unavailable_cyclical():
+    empty = pd.DataFrame(columns=["report_date", "close"])
+    client = FakeClient(
+        {
+            "SPY": _price_frame(100, 1.0),
+            "XLY": empty,
+            "XLP": _price_frame(100, 0.2),
+            "CPER": _price_frame(50, 0.5),
+            "GLD": _price_frame(100, -0.1),
+            "USO": _price_frame(100, -0.2),
+            "DBC": _price_frame(100, -0.1),
+        },
+        pd.DataFrame({"report_date": pd.date_range("2024-01-01", periods=40, freq="B"), "bc10_year": [0.05 - i * 0.0002 for i in range(40)]}),
+    )
+    regime = get_kiss_regime(client, FakeConfig())
+    assert "cyclical_defensive_ratio" in regime.unavailable_components
+    assert regime.component_scores["cyclical_defensive_ratio"] is None

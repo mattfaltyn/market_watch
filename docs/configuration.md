@@ -16,7 +16,7 @@ All runtime methodology and TTLs are loaded from [`config/settings.yaml`](../con
 | `vams_multipliers` | Bullish / neutral / bearish multipliers for legacy allocation math. |
 | `regime_inputs` | `weak_score_threshold`, nested `growth` and `inflation` proxy symbol overrides (e.g. `equity_trend_symbol`, `yield_symbol`). |
 | `market_watch_symbols` | List of tickers for market snapshot, overview indicator tape, and `/market-watch`. |
-| `price_fetch_overrides` | Map **logical** symbol → **defeatbeta** ticker when the primary symbol has no price series in the upstream dataset. Example: `AGG: TLT`, `BTC-USD: IBIT`. |
+| `price_fetch_overrides` | Optional map **logical** symbol → **defeatbeta** ticker when the primary symbol has no price series in defeatbeta. Usually empty: the app falls back to Yahoo Finance for missing logical symbols. |
 
 ### `alert_thresholds`
 
@@ -30,11 +30,12 @@ Used by VAMS (`vams_bullish_threshold`, `vams_bearish_threshold`, `volatility_hi
 
 TTLs (seconds) passed into [`CachePolicy`](../app/data/defeatbeta_client.py) in [`app/main.py`](../app/main.py): `default_ttl_seconds`, `market_ttl_seconds`, `fundamentals_ttl_seconds`, `news_ttl_seconds`, `filings_ttl_seconds`, `transcripts_ttl_seconds`.
 
-## Logical vs fetch ticker
+## Logical vs fetch ticker vs Yahoo fallback
 
 - **Logical** symbols appear in the UI, `RegimeOverviewSnapshot`, and YAML (`AGG`, `BTC-USD`).
-- **Fetch** symbols are what `defeatbeta_api` `Ticker(...).price()` loads when an override exists.
-- Do not assume every logical ETF or crypto pair exists in defeatbeta; verify or extend `price_fetch_overrides`.
+- **Defeatbeta fetch** uses `Ticker(logical).price()` unless `price_fetch_overrides` maps the logical symbol to another defeatbeta ticker.
+- If defeatbeta returns an empty frame, **Yahoo Finance** (`yfinance`) fills the gap for the same logical symbol; see [`app/data/yfinance_client.py`](../app/data/yfinance_client.py).
+- **`KissRegime.unavailable_components`** lists regime proxy inputs that had no usable data (excluded from composite means); warnings are merged into the regime/signals page error strip via `RegimeOverviewSnapshot.warnings`.
 
 ## `AppConfig` properties
 

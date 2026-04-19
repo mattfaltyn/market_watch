@@ -62,6 +62,8 @@ In the current product, those states are interpreted as:
 - `AGG` = bond confirmation
 - `BTC-USD` = risk appetite confirmation
 
+**Data sources:** Prices load from **defeatbeta-api** first; if a logical symbol has no series there, **Yahoo Finance** (`yfinance`) supplies history for the same ticker. Tiles may show **via Yahoo Finance** when applicable. Regime proxy inputs with no data are called out in warnings and omitted from composite means (see [docs/architecture.md](docs/architecture.md)).
+
 ## Signal Design
 
 ### Macro Regime Engine

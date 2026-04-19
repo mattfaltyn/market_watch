@@ -22,6 +22,7 @@ def render_market_watch(market, rates, watchlist_frame: pd.DataFrame, sp500_hist
             f"{index.close:,.2f}" if index.close is not None else "Unavailable",
             f"1D {index.return_1d:+.1%} | 1M {index.return_1m:+.1%}" if index.return_1d is not None and index.return_1m is not None else "Insufficient history",
             "positive" if (index.return_1d or 0) >= 0 else "negative",
+            source_note="via Yahoo Finance" if getattr(index, "source", None) == "yfinance" else None,
         )
         for index in market.indices
     ]
@@ -52,14 +53,14 @@ def render_market_watch(market, rates, watchlist_frame: pd.DataFrame, sp500_hist
                                     stat_chip("1M", f"{rates.change_10y_1m:+.2%}" if rates.change_10y_1m is not None else "—", "market"),
                                 ],
                             ),
-                            heatstrip(rate_values, ["10Y", "CURVE", "5D", "1M"]),
+                            heatstrip(rate_values, ["10Y", "CURVE", "5D", "1M"], value_format="yield"),
                         ],
                         subtitle="Rate pressure",
                     ),
                     section_panel(
                         "Indicator Strip",
                         [
-                            heatstrip(indicator_values, indicator_labels),
+                            heatstrip(indicator_values, indicator_labels, value_format="percent"),
                             html.Div(className="chip-row", children=[badge(f"{len(market.indices)} tracked", "market"), badge(f"{market.positive_participation_ratio:.0%} positive", "positive")]),
                         ],
                         subtitle="Configured market-watch symbols",

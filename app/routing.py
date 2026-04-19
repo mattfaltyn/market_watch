@@ -71,6 +71,7 @@ def dispatch_page(
         kiss_snapshot = build_kiss_portfolio_snapshot(regime, vams_signals, config)
         return render_implementation(kiss_snapshot, errors)
     regime_snapshot = build_regime_overview_snapshot(client, config, force_refresh=force_refresh)
+    errors.extend(regime_snapshot.warnings)
     if pathname == "/signals":
         return render_signals(regime_snapshot, errors)
 
