@@ -1,7 +1,61 @@
-benchmark: SPY
+kiss:
+  sleeves:
+    equity: SPY
+    fixed_income: AGG
+    bitcoin: BTC-USD
+    cash: USFR
+  base_weights:
+    equity: 0.60
+    fixed_income: 0.30
+    bitcoin: 0.10
+  regime_rules:
+    goldilocks:
+      equity: 0.60
+      fixed_income: 0.30
+      bitcoin: 0.10
+    reflation:
+      equity: 0.60
+      fixed_income: 0.15
+      bitcoin: 0.10
+    inflation:
+      equity: 0.30
+      fixed_income: 0.15
+      bitcoin: 0.05
+    deflation:
+      equity: 0.30
+      fixed_income: 0.30
+      bitcoin: 0.05
+  vams_multipliers:
+    bullish: 1.0
+    neutral: 0.5
+    bearish: 0.0
+  regime_inputs:
+    weak_score_threshold: 0.10
+    growth:
+      equity_trend_symbol: SPY
+      cyclical_symbol: XLY
+      defensive_symbol: XLP
+      copper_symbol: CPER
+      gold_symbol: GLD
+    inflation:
+      oil_symbol: USO
+      commodity_symbol: DBC
+      yield_symbol: bc10_year
+  market_watch_symbols:
+    - SPY
+    - AGG
+    - BTC-USD
+    - GLD
+    - USO
+    - DBC
+    - QQQ
+    - IWM
 alert_thresholds:
   large_move_1d: 0.03
   valuation_industry_gap: 0.20
+  vams_bullish_threshold: 0.30
+  vams_bearish_threshold: -0.30
+  volatility_high_threshold: 0.35
 chart_windows:
   short_days: 20
   medium_days: 50

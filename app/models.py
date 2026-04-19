@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 import pandas as pd
 
@@ -61,6 +61,66 @@ class AlertFlag:
     category: str
     message: str
     severity: str
+
+
+@dataclass(frozen=True)
+class KissRegime:
+    regime: Literal["goldilocks", "reflation", "inflation", "deflation"]
+    regime_strength: float
+    hybrid_label: str | None
+    growth_direction: Literal["up", "down"]
+    inflation_direction: Literal["up", "down"]
+    component_scores: dict[str, float]
+    as_of: datetime | None
+    reasons: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class VamsSignal:
+    symbol: str
+    state: Literal["bullish", "neutral", "bearish"]
+    score: float
+    volatility: float | None
+    trend: float | None
+    momentum: float | None
+    as_of: datetime | None
+    reasons: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class SignalChange:
+    symbol: str
+    field: str
+    old_value: str
+    new_value: str
+    message: str
+
+
+@dataclass(frozen=True)
+class SleeveAllocation:
+    name: str
+    symbol: str
+    base_weight: float
+    target_weight: float
+    actual_weight: float
+    vams_state: str
+    vams_multiplier: float
+    regime_rule_applied: str
+    delta_from_prior: float | None
+    notes: str = ""
+
+
+@dataclass(frozen=True)
+class KissPortfolioSnapshot:
+    regime: KissRegime
+    sleeves: list[SleeveAllocation]
+    cash_symbol: str
+    cash_weight: float
+    gross_exposure: float
+    summary_text: str
+    implementation_text: str
+    signal_changes: list[SignalChange]
+    as_of: datetime | None
 
 
 @dataclass(frozen=True)

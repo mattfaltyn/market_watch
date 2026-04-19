@@ -13,11 +13,38 @@ CONFIG_DIR = ROOT_DIR / "config"
 
 @dataclass(frozen=True)
 class AppConfig:
-    benchmark: str
-    watchlist: list[str]
-    alert_thresholds: dict[str, Any]
+    kiss: dict[str, Any]
     chart_windows: dict[str, int]
     cache: dict[str, Any]
+    alert_thresholds: dict[str, Any]
+
+    @property
+    def sleeves(self) -> dict[str, str]:
+        return self.kiss.get("sleeves", {})
+
+    @property
+    def base_weights(self) -> dict[str, float]:
+        return self.kiss.get("base_weights", {})
+
+    @property
+    def regime_rules(self) -> dict[str, dict[str, float]]:
+        return self.kiss.get("regime_rules", {})
+
+    @property
+    def vams_multipliers(self) -> dict[str, float]:
+        return self.kiss.get("vams_multipliers", {})
+
+    @property
+    def regime_inputs(self) -> dict[str, Any]:
+        return self.kiss.get("regime_inputs", {})
+
+    @property
+    def market_watch_symbols(self) -> list[str]:
+        return [str(symbol).upper() for symbol in self.kiss.get("market_watch_symbols", [])]
+
+    @property
+    def sleeve_symbols(self) -> list[str]:
+        return [str(symbol).upper() for symbol in self.sleeves.values()]
 
 
 def _load_yaml(path: Path) -> dict[str, Any]:
@@ -30,11 +57,9 @@ def _load_yaml(path: Path) -> dict[str, Any]:
 
 def load_config() -> AppConfig:
     settings = _load_yaml(CONFIG_DIR / "settings.yaml")
-    watchlist_data = _load_yaml(CONFIG_DIR / "watchlist.yaml")
     return AppConfig(
-        benchmark=str(settings.get("benchmark", "SPY")).upper(),
-        watchlist=[str(ticker).upper() for ticker in watchlist_data.get("tickers", [])],
-        alert_thresholds=settings.get("alert_thresholds", {}),
+        kiss=settings.get("kiss", {}),
         chart_windows=settings.get("chart_windows", {}),
         cache=settings.get("cache", {}),
+        alert_thresholds=settings.get("alert_thresholds", {}),
     )

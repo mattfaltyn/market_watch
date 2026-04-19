@@ -1,35 +1,66 @@
 import pandas as pd
 
-from app.models import AlertFlag, MarketIndexSnapshot, MarketSnapshot, RatesSnapshot, RegimeSignal, TickerDetailBundle
-from app.main import _should_force_refresh
 from app.components.ui import fatal_error_page, make_table
-from app.pages.overview import render_overview
+from app.main import _should_force_refresh
+from app.models import AlertFlag, KissPortfolioSnapshot, KissRegime, SignalChange, SleeveAllocation, TickerDetailBundle, VamsSignal
+from app.pages.implementation import render_implementation
+from app.pages.overview import render_kiss_overview
+from app.pages.signals import render_signals
 from app.pages.ticker_detail import render_ticker_detail
-from app.pages.watchlist import render_watchlist
 
 
-def test_overview_renders():
-    market = MarketSnapshot(
-        indices=[MarketIndexSnapshot("SPY", 500.0, 0.01, 0.02, 0.03, 0.12, "above", "above", "above", None)],
-        positive_participation_ratio=1.0,
+def _sample_snapshot() -> KissPortfolioSnapshot:
+    regime = KissRegime(
+        regime="goldilocks",
+        regime_strength=0.42,
+        hybrid_label=None,
+        growth_direction="up",
+        inflation_direction="down",
+        component_scores={"equity_trend": 0.2, "yield_trend": -0.1},
+        as_of=None,
+        reasons=["Growth proxies are trending up.", "Inflation proxies are trending down."],
+    )
+    return KissPortfolioSnapshot(
+        regime=regime,
+        sleeves=[
+            SleeveAllocation("equity", "SPY", 0.6, 0.6, 0.3, "neutral", 0.5, "Goldilocks", 0.0),
+            SleeveAllocation("fixed_income", "AGG", 0.3, 0.3, 0.3, "bullish", 1.0, "Goldilocks", 0.0),
+            SleeveAllocation("bitcoin", "BTC-USD", 0.1, 0.1, 0.05, "neutral", 0.5, "Goldilocks", 0.05),
+        ],
+        cash_symbol="USFR",
+        cash_weight=0.35,
+        gross_exposure=0.65,
+        summary_text="KISS is in Goldilocks with 65% gross exposure.",
+        implementation_text="Set SPY to 30%, AGG to 30%, BTC-USD to 5%, hold USFR for the balance.",
+        signal_changes=[SignalChange("BTC-USD", "actual_weight", "0.0%", "5.0%", "BTC-USD actual weight moved 0.0% -> 5.0%.")],
         as_of=None,
     )
-    rates = RatesSnapshot(None, 0.04, 0.042, 0.046, 0.002, 0.001, -0.001)
-    regime = RegimeSignal("Neutral", 0, ["mixed conditions"])
-    watchlist = pd.DataFrame({"symbol": ["AAPL"], "recent_news_7d": [2], "alert_count": [1], "high_alert_count": [0], "return_1d": [0.02]})
-    layout = render_overview(market, rates, regime, watchlist, pd.DataFrame({"report_date": pd.to_datetime(["2024-12-31"]), "annual_returns": [0.2]}), [])
+
+
+def test_kiss_overview_renders():
+    layout = render_kiss_overview(_sample_snapshot(), [])
     assert layout is not None
 
 
-def test_watchlist_renders():
-    layout = render_watchlist(pd.DataFrame({"symbol": ["AAPL"], "alerts": [["test"]], "close": [100], "return_1d": [0.01], "return_5d": [0.02], "return_1m": [0.03], "beta_1y": [1.1], "days_to_earnings": [5], "ttm_pe": [20], "industry_ttm_pe": [18], "recent_news_7d": [2], "filing_count_30d": [1], "alert_count": [1], "high_alert_count": [0]}), [])
+def test_implementation_page_renders():
+    layout = render_implementation(_sample_snapshot(), [])
+    assert layout is not None
+
+
+def test_signals_page_renders():
+    regime = _sample_snapshot().regime
+    vams_signals = {
+        "SPY": VamsSignal("SPY", "neutral", 0.1, 0.2, 0.15, 0.05, None, ["Mixed trend"]),
+        "AGG": VamsSignal("AGG", "bullish", 0.4, 0.1, 0.2, 0.2, None, ["Positive trend"]),
+    }
+    layout = render_signals(regime, vams_signals, [])
     assert layout is not None
 
 
 def test_ticker_detail_renders():
     bundle = TickerDetailBundle(
-        symbol="AAPL",
-        info=pd.DataFrame({"symbol": ["AAPL"], "sector": ["Technology"], "industry": ["Consumer Electronics"]}),
+        symbol="SPY",
+        info=pd.DataFrame({"symbol": ["SPY"], "sector": ["ETF"], "industry": ["Index Fund"]}),
         price=pd.DataFrame({"report_date": pd.to_datetime(["2024-12-31"]), "close": [200]}),
         valuation={"ttm_pe": pd.DataFrame({"report_date": pd.to_datetime(["2024-12-31"]), "ttm_pe": [30]})},
         quality={},
@@ -39,7 +70,7 @@ def test_ticker_detail_renders():
         calendar=pd.DataFrame(),
         revenue_breakdown={"segment": pd.DataFrame(), "geography": pd.DataFrame()},
         transcripts=pd.DataFrame(),
-        alerts=[AlertFlag("AAPL", "earnings", "Earnings in 3 days", "high")],
+        alerts=[AlertFlag("SPY", "allocation", "SPY actual weight moved higher", "high")],
         errors=[],
     )
     layout = render_ticker_detail(bundle)

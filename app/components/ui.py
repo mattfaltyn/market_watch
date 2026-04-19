@@ -34,13 +34,15 @@ def _format_timestamp(value: object) -> str:
 def app_shell(
     children,
     page_title: str,
-    active_page: str = "overview",
+    active_page: str = "kiss-overview",
     status_meta: dict | None = None,
 ) -> html.Div:
     status_meta = status_meta or {}
     nav = [
-        ("Overview", "/", "overview"),
-        ("Watchlist", "/watchlist", "watchlist"),
+        ("KISS Overview", "/", "kiss-overview"),
+        ("Implementation", "/implementation", "implementation"),
+        ("Signals", "/signals", "signals"),
+        ("Market Watch", "/market-watch", "market-watch"),
     ]
     return html.Div(
         className="app-shell",
@@ -54,7 +56,7 @@ def app_shell(
                             html.Div(
                                 className="brand-block",
                                 children=[
-                                    html.H1("Market Watch"),
+                                    html.H1("KISS Portfolio"),
                                     html.P(page_title, className="subtitle"),
                                 ],
                             ),
@@ -66,7 +68,7 @@ def app_shell(
                                         children=[
                                             _status_item("Source", str(status_meta.get("source", "defeatbeta-api"))),
                                             _status_item("As of", _format_timestamp(status_meta.get("as_of"))),
-                                            _status_item("Scope", str(status_meta.get("scope", "Broad Market + Watchlist"))),
+                                            _status_item("Scope", str(status_meta.get("scope", "KISS"))),
                                         ],
                                     ),
                                     html.Button("Refresh Data", id="refresh-button", n_clicks=0, className="refresh-button"),
@@ -149,9 +151,34 @@ def fatal_error_page(title: str, errors: list[str], guidance: list[str] | None =
             )
         ],
         page_title="Dashboard load error",
-        active_page="overview",
+        active_page="kiss-overview",
         status_meta={"scope": "Load failure"},
     )
+
+
+def make_pie_chart(labels: list[str], values: list[float], title: str) -> dcc.Graph | html.Div:
+    if not labels or not values:
+        return html.Div("Data unavailable for this view.", className="empty-state")
+    figure = go.Figure(
+        data=[
+            go.Pie(
+                labels=labels,
+                values=values,
+                hole=0.55,
+                marker={"colors": ["#234463", "#5c87b0", "#d38b22", "#d8dddf"]},
+                textinfo="label+percent",
+            )
+        ]
+    )
+    figure.update_layout(
+        title={"text": title, "x": 0.02, "xanchor": "left"},
+        margin={"l": 10, "r": 10, "t": 52, "b": 10},
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        height=340,
+        showlegend=False,
+    )
+    return dcc.Graph(figure=figure, config={"displayModeBar": False}, className="chart")
 
 
 def _series_color(semantic: str) -> str:

@@ -86,6 +86,20 @@ class DefeatBetaClient:
             force_refresh=force_refresh,
         )
 
+    def get_return_series(self, symbol: str, lookbacks: list[int], force_refresh: bool = False) -> DataResult:
+        price_result = self.get_prices(symbol, force_refresh=force_refresh)
+        if price_result.data.empty or "close" not in price_result.data.columns:
+            return DataResult(data=pd.DataFrame(), errors=price_result.errors)
+        frame = price_result.data.sort_values("report_date").copy()
+        close = pd.to_numeric(frame["close"], errors="coerce")
+        result = frame[["report_date"]].copy()
+        for lookback in lookbacks:
+            result[f"return_{lookback}d"] = close / close.shift(lookback) - 1.0
+        return DataResult(data=result, errors=price_result.errors)
+
+    def get_yield_series(self, force_refresh: bool = False) -> DataResult:
+        return self.get_treasury_yields(force_refresh=force_refresh)
+
     def get_beta(self, symbol: str, benchmark: str, period: str = "1y", force_refresh: bool = False) -> DataResult:
         ticker = self._ticker(symbol)
         return self._safe_cached_frame(
