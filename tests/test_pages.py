@@ -1,7 +1,7 @@
 import pandas as pd
 
 from app.components.ui import allocation_band, fatal_error_page, macro_quadrant, make_table, sleeve_state_card, transition_strip
-from app.main import _should_force_refresh
+from app.routing import _should_force_refresh
 from app.models import (
     AlertFlag,
     ConfirmationSnapshot,

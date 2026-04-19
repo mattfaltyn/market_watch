@@ -12,6 +12,7 @@ Local-first KISS regime and market-indicators terminal built with Plotly Dash an
 | [docs/configuration.md](docs/configuration.md) | `settings.yaml` and `AppConfig` |
 | [docs/data-and-caching.md](docs/data-and-caching.md) | defeatbeta client, file cache, refresh |
 | [docs/development.md](docs/development.md) | Venv, tests, conventions |
+| [docs/testing.md](docs/testing.md) | Parallel pytest, branch coverage, coverage reports |
 | [docs/routing-and-pages.md](docs/routing-and-pages.md) | URL routes and page modules |
 
 ## What This App Does

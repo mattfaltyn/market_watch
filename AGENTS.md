@@ -10,7 +10,8 @@ Local-first **KISS regime and market-indicators** dashboard built with **Plotly 
 
 | Path | Purpose |
 |------|---------|
-| [`app/main.py`](app/main.py) | Dash app, routing callback, `CONFIG` / `CLIENT` / `CACHE` singletons |
+| [`app/main.py`](app/main.py) | Dash app, `CONFIG` / `CLIENT` / `CACHE` singletons; callbacks delegate to [`app/routing.py`](app/routing.py) |
+| [`app/routing.py`](app/routing.py) | `dispatch_page`, `dispatch_page_safe`, `refresh_state_payload` (unit-tested; Dash callbacks in `main` are thin wrappers) |
 | [`app/config.py`](app/config.py) | Load `config/settings.yaml` → `AppConfig` |
 | [`app/models.py`](app/models.py) | Shared dataclasses |
 | [`app/components/`](app/components/) | Reusable UI (`ui.py`, CSS constants) |
@@ -37,8 +38,10 @@ Open `http://127.0.0.1:8050`.
 Before stating that tests pass, run:
 
 ```bash
-.venv/bin/pytest -q
+.venv/bin/pytest
 ```
+
+The default pytest invocation runs workers in parallel and enforces **100% branch coverage** on `app/`. See [`docs/testing.md`](docs/testing.md) for `-n0`, HTML coverage reports, and exclusions.
 
 `dash_table.DataTable` deprecation warnings are expected. Do not claim full green without running the suite.
 
@@ -77,3 +80,4 @@ Before stating that tests pass, run:
 
 - [README.md](README.md) — product overview and quick start  
 - [docs/README.md](docs/README.md) — documentation index  
+- [docs/testing.md](docs/testing.md) — pytest parallelism, branch coverage, debugging  

@@ -24,10 +24,14 @@ Open `http://127.0.0.1:8050`.
 Run the full suite before claiming green builds:
 
 ```bash
-.venv/bin/pytest -q
+.venv/bin/pytest
 ```
 
-[`pyproject.toml`](../pyproject.toml) sets `testpaths = ["tests"]`. You may see **DeprecationWarning** from `dash_table.DataTable`; that is expected until the UI migrates.
+[`pyproject.toml`](../pyproject.toml) sets `testpaths = ["tests"]`, runs tests in **parallel** (`pytest-xdist` `-n auto`), and enforces **100% branch coverage** of `app/` via `pytest-cov`. Details: [testing.md](testing.md).
+
+You may see **DeprecationWarning** from `dash_table.DataTable`; that is expected until the UI migrates.
+
+Use **`-n0`** for a single-process run when debugging (see [testing.md](testing.md)).
 
 Optional smoke import:
 

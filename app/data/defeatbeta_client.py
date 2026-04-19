@@ -83,7 +83,7 @@ class DefeatBetaClient:
 
         try:
             data = self.cache.get_or_set(key, factory, ttl_seconds=ttl, force_refresh=force_refresh)
-        except Exception as exc:  # pragma: no cover - defensive UI boundary
+        except Exception as exc:
             errors.append(str(exc))
             data = pd.DataFrame()
         return DataResult(data=data, errors=errors)
