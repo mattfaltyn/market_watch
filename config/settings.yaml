@@ -50,6 +50,10 @@ kiss:
     - DBC
     - QQQ
     - IWM
+  # defeatbeta dataset has no AGG / BTC-USD price series; map to liquid proxies for history.
+  price_fetch_overrides:
+    AGG: TLT
+    BTC-USD: IBIT
 alert_thresholds:
   large_move_1d: 0.03
   valuation_industry_gap: 0.20

@@ -32,6 +32,7 @@ CLIENT = DefeatBetaClient(
         filings_ttl_seconds=int(CONFIG.cache.get("filings_ttl_seconds", 21600)),
         transcripts_ttl_seconds=int(CONFIG.cache.get("transcripts_ttl_seconds", 43200)),
     ),
+    price_fetch_overrides=CONFIG.price_fetch_overrides,
 )
 
 

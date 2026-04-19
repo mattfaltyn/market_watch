@@ -1,0 +1,16 @@
+# Cursor rules (market_watch)
+
+Authoritative project guidance lives in:
+
+- **AGENTS.md** — setup, repo map, verification, do-not-commit list
+- **.cursor/rules/*.mdc** — always-on and file-scoped rules (core, Dash pages, tests)
+- **docs/** — architecture, configuration, caching, development, routing
+
+Non-negotiables:
+
+1. Run **`.venv/bin/pytest -q`** before claiming tests pass.
+2. Keep changes **scoped**; match existing style in touched modules.
+3. Do **not** commit secrets, `.env`, or `.cache/` data.
+4. Use **`DefeatBetaClient`** and existing **services** for data; respect **`price_fetch_overrides`** in config for symbol resolution.
+
+If this file conflicts with `.mdc` rules, prefer the **`.mdc`** files and **AGENTS.md** as updated.

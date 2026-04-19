@@ -1,0 +1,12 @@
+---
+description: Tests — pytest fakes and minimal client protocols
+globs: tests/**/*.py
+alwaysApply: false
+---
+
+# Tests
+
+- Run `.venv/bin/pytest -q` from the repo root (venv).
+- Fake clients should implement only the methods the code under test calls (see `tests/test_regime_history.py`, `tests/test_pages.py`).
+- Use `app.models.DataResult` where the real client returns `DataResult`.
+- Avoid live network in unit tests unless explicitly marked or isolated.

@@ -1,0 +1,14 @@
+---
+description: Core context for market_watch Dash app — stack, layout, verification
+alwaysApply: true
+---
+
+# market_watch (core)
+
+- **Stack:** Python 3.11+, Plotly Dash, `defeatbeta-api`, file cache under repo `.cache/`.
+- **Entry:** `app/main.py` — routing callback, shared `CONFIG`, `CLIENT`, `CACHE`.
+- **Authoritative guides:** `AGENTS.md` and `docs/`.
+- **Prefer** extending `app/services/` and `app/data/defeatbeta_client.py` over parallel fetch layers.
+- **Verification:** run `.venv/bin/pytest -q` before claiming tests pass.
+- **Scope:** keep diffs focused; match patterns in neighboring files.
+- **Secrets:** never commit `.env`, API keys, or `.cache/` contents.

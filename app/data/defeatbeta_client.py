@@ -20,12 +20,27 @@ class CachePolicy:
 
 
 class DefeatBetaClient:
-    def __init__(self, cache: FileCache, policy: CachePolicy | None = None) -> None:
+    def __init__(
+        self,
+        cache: FileCache,
+        policy: CachePolicy | None = None,
+        price_fetch_overrides: dict[str, str] | None = None,
+    ) -> None:
         self.cache = cache
         self.policy = policy or CachePolicy()
+        self._price_fetch_overrides = price_fetch_overrides or {}
         self._ticker_cls = None
         self._treasure_cls = None
         self._util_module = None
+
+    def _resolve_price_fetch_symbol(self, symbol: str) -> str:
+        o = self._price_fetch_overrides
+        if symbol in o:
+            return o[symbol]
+        upper = symbol.upper()
+        if upper in o:
+            return o[upper]
+        return symbol
 
     def _lazy_import(self) -> None:
         if self._ticker_cls is not None:
@@ -78,9 +93,11 @@ class DefeatBetaClient:
         return self._ticker_cls(symbol)
 
     def get_prices(self, symbol: str, force_refresh: bool = False) -> DataResult:
-        ticker = self._ticker(symbol)
+        fetch_symbol = self._resolve_price_fetch_symbol(symbol)
+        ticker = self._ticker(fetch_symbol)
+        cache_key = f"{symbol}_price" if fetch_symbol == symbol else f"{symbol}_price__via_{fetch_symbol}"
         return self._safe_cached_frame(
-            key=f"{symbol}_price",
+            key=cache_key,
             ttl=self.policy.market_ttl_seconds,
             loader=ticker.price,
             force_refresh=force_refresh,

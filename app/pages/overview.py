@@ -25,18 +25,24 @@ def _indicator_map(snapshot: RegimeOverviewSnapshot) -> dict[str, IndicatorSnaps
 
 def _benchmark_tiles(snapshot: RegimeOverviewSnapshot) -> list[html.Div]:
     indicators = _indicator_map(snapshot)
-    symbols = ["SPY", "QQQ", "IWM", "BTC-USD", "GLD", "USO", "DBC"]
+    symbols = [ind.symbol for ind in snapshot.indicators if ind.symbol not in ("10Y", "10Y-2Y")]
     tiles = []
     for symbol in symbols:
         indicator = indicators.get(symbol)
         if indicator is None:
             continue
-        delta = (
-            f"1D {indicator.change_1d:+.1%} | 1M {indicator.change_1m:+.1%}"
-            if indicator.change_1d is not None and indicator.change_1m is not None
-            else "Insufficient history"
-        )
-        tone = "positive" if (indicator.change_1d or 0.0) >= 0 else "negative"
+        if indicator.latest_value is None:
+            delta = "No price data"
+            tone = "neutral_state"
+        elif indicator.change_1d is not None and indicator.change_1m is not None:
+            delta = f"1D {indicator.change_1d:+.1%} | 1M {indicator.change_1m:+.1%}"
+            tone = "positive" if indicator.change_1d >= 0 else "negative"
+        elif indicator.change_1d is not None:
+            delta = f"1D {indicator.change_1d:+.1%}"
+            tone = "positive" if indicator.change_1d >= 0 else "negative"
+        else:
+            delta = "Insufficient history"
+            tone = "neutral_state"
         price = f"{indicator.latest_value:,.2f}" if indicator.latest_value is not None else "Unavailable"
         tiles.append(benchmark_card(symbol, price, delta, tone))
     return tiles

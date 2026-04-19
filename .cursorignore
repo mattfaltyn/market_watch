@@ -1,0 +1,27 @@
+# Python / tooling
+.venv/
+__pycache__/
+*.py[cod]
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Local data and build
+.cache/
+*.pkl
+dist/
+build/
+*.egg-info/
+
+# Coverage
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# Env / secrets
+.env
+.env.*
