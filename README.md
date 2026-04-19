@@ -1,6 +1,6 @@
 # market_watch
 
-Local-first KISS regime and market-indicators terminal built with Plotly Dash and `defeatbeta-api`.
+Local-first KISS regime and market-indicators terminal built with Plotly Dash and **Yahoo Finance** (`yfinance`).
 
 ## Documentation
 
@@ -10,7 +10,7 @@ Local-first KISS regime and market-indicators terminal built with Plotly Dash an
 | [docs/README.md](docs/README.md) | Index of technical documentation |
 | [docs/architecture.md](docs/architecture.md) | Layers, data flow, core services |
 | [docs/configuration.md](docs/configuration.md) | `settings.yaml` and `AppConfig` |
-| [docs/data-and-caching.md](docs/data-and-caching.md) | defeatbeta client, file cache, refresh |
+| [docs/data-and-caching.md](docs/data-and-caching.md) | yfinance client, file cache, refresh |
 | [docs/development.md](docs/development.md) | Venv, tests, conventions |
 | [docs/testing.md](docs/testing.md) | Parallel pytest, branch coverage, coverage reports |
 | [docs/routing-and-pages.md](docs/routing-and-pages.md) | URL routes and page modules |
@@ -62,7 +62,7 @@ In the current product, those states are interpreted as:
 - `AGG` = bond confirmation
 - `BTC-USD` = risk appetite confirmation
 
-**Data sources:** Prices load from **defeatbeta-api** first; if a logical symbol has no series there, **Yahoo Finance** (`yfinance`) supplies history for the same ticker. Tiles may show **via Yahoo Finance** when applicable. Regime proxy inputs with no data are called out in warnings and omitted from composite means (see [docs/architecture.md](docs/architecture.md)).
+**Data sources:** Prices, treasury proxies, S&P 500 annual history, and ticker fundamentals/news load through **`yfinance`** (Yahoo Finance). Tiles may show **via Yahoo Finance**. Treasury **10Y–2Y** spread uses a **5Y index proxy** (`^FVX`) for the short end (see [docs/data-and-caching.md](docs/data-and-caching.md)). Regime proxy inputs with no data are called out in warnings and omitted from composite means (see [docs/architecture.md](docs/architecture.md)).
 
 ## Signal Design
 
@@ -94,7 +94,7 @@ The result is a sleeve state of `bullish`, `neutral`, or `bearish`.
 
 ### Historical Regime And Confirmation Replay
 
-Historical regime replay lives in [app/services/regime_history.py](app/services/regime_history.py). It replays the current growth/inflation logic across defeatbeta-api time series to derive:
+Historical regime replay lives in [app/services/regime_history.py](app/services/regime_history.py). It replays the current growth/inflation logic across Yahoo Finance time series to derive:
 
 - regime history
 - last regime flip
@@ -134,7 +134,6 @@ Key sections:
 - `kiss.vams_multipliers`: VAMS thresholds and multipliers used by confirmation logic and the legacy implementation route
 - `kiss.regime_inputs`: proxy symbols and weak-score threshold for macro classification
 - `kiss.market_watch_symbols`: symbols shown on the supporting market-watch page
-- `kiss.price_fetch_overrides`: optional map from a logical symbol (for example `AGG`, `BTC-USD`) to a defeatbeta ticker that has price history when the primary symbol does not
 - `alert_thresholds`: VAMS state thresholds, large move thresholds, and volatility limits
 - `chart_windows`: moving-average and lookback windows
 - `cache`: TTL configuration by data category
@@ -143,10 +142,11 @@ The config loader is defined in [app/config.py](app/config.py).
 
 ## Data And Runtime Notes
 
-- The app fetches live data through `defeatbeta-api`, so initial page loads require network access to the upstream dataset.
+- The app fetches live data through **Yahoo Finance** (`yfinance`); initial page loads require network access and are subject to Yahoo availability and rate limits.
 - If the upstream source is unavailable, the app renders an in-app error state instead of a blank page.
 - `BTC-USD` is the default bitcoin sleeve proxy in v1.
-- Regime transitions and confirmation transitions are derived from defeatbeta-api historical series at request time.
+- Regime transitions and confirmation transitions are derived from historical series at request time (cached under `.cache/`).
+- The `/ticker/<symbol>` drill-down does **not** include SEC filings, transcripts, or revenue segment/geography tables (not exposed by `yfinance` in this app).
 - The primary product does not depend on app-session memory for “what changed”.
 - There is no persisted history, rebalance ledger, or trade execution integration in v1.
 - The macro regime and VAMS methodologies are approximate and explainable local proxies, not a claim of exact proprietary 42 Macro replication.
@@ -169,7 +169,7 @@ Optional app bootstrap check:
 ## Structure
 
 - [app/main.py](app/main.py): Dash entrypoint and routing
-- [app/data/](app/data): cache and `defeatbeta-api` adapter
+- [app/data/](app/data): file cache and `MarketDataClient` (`yfinance`)
 - [app/services/](app/services): KISS regime, regime history replay, VAMS confirmation, legacy portfolio construction, and supporting market logic
 - [app/pages/](app/pages): regime overview, legacy implementation, signals, market-watch, and ticker detail views
 - [config/](config): YAML methodology, sleeve mappings, and thresholds

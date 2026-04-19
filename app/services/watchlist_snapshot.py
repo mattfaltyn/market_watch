@@ -69,7 +69,6 @@ def build_watchlist_snapshot(client, tickers: list[str], benchmark: str, thresho
         beta = client.get_beta(symbol, benchmark=benchmark, force_refresh=force_refresh)
         calendar = client.get_calendar(symbol, force_refresh=force_refresh)
         news = client.get_news(symbol, force_refresh=force_refresh)
-        filings = client.get_filings(symbol, force_refresh=force_refresh)
         ttm_pe = client.get_metric_frame(symbol, "ttm_pe", force_refresh=force_refresh)
         industry_pe = client.get_metric_frame(symbol, "industry_ttm_pe", force_refresh=force_refresh)
         net_margin = client.get_metric_frame(symbol, "quarterly_net_margin", force_refresh=force_refresh)
@@ -82,8 +81,6 @@ def build_watchlist_snapshot(client, tickers: list[str], benchmark: str, thresho
         now_utc = _utc_midnight()
         recent_news_3d = int((_coerce_utc(news.data[publish_col]) >= now_utc - pd.Timedelta(days=3)).sum()) if not news.data.empty and publish_col in news.data.columns else 0
         recent_news_7d = int((_coerce_utc(news.data[publish_col]) >= now_utc - pd.Timedelta(days=7)).sum()) if not news.data.empty and publish_col in news.data.columns else 0
-        latest_filing_form = filings.data.sort_values("filing_date").iloc[-1]["form_type"] if not filings.data.empty and "form_type" in filings.data.columns else None
-        filing_count_30d = int((_coerce_utc(filings.data["filing_date"]) >= now_utc - pd.Timedelta(days=30)).sum()) if not filings.data.empty and "filing_date" in filings.data.columns else 0
 
         row = {
             "symbol": symbol,
@@ -97,9 +94,7 @@ def build_watchlist_snapshot(client, tickers: list[str], benchmark: str, thresho
             "revenue_yoy_growth": _latest_value(revenue_growth.data, "revenue_yoy_growth"),
             "recent_news_3d": recent_news_3d,
             "recent_news_7d": recent_news_7d,
-            "filing_count_30d": filing_count_30d,
-            "latest_filing_form": latest_filing_form,
-            "errors": " | ".join(price.errors + beta.errors + calendar.errors + news.errors + filings.errors),
+            "errors": " | ".join(price.errors + beta.errors + calendar.errors + news.errors),
         }
         flags = get_alert_flags(symbol, pd.Series(row), rates, thresholds)
         row["alerts"] = [flag.message for flag in flags]
@@ -115,9 +110,7 @@ def get_ticker_detail(client, symbol: str, alerts, force_refresh: bool = False, 
     info = client.get_info(symbol, force_refresh=force_refresh)
     price = client.get_prices(symbol, force_refresh=force_refresh)
     news = client.get_news(symbol, force_refresh=force_refresh)
-    filings = client.get_filings(symbol, force_refresh=force_refresh)
     calendar = client.get_calendar(symbol, force_refresh=force_refresh)
-    transcripts = client.get_transcripts(symbol, force_refresh=force_refresh)
     valuation = {
         "ttm_pe": client.get_metric_frame(symbol, "ttm_pe", force_refresh=force_refresh).data,
         "ps_ratio": client.get_metric_frame(symbol, "ps_ratio", force_refresh=force_refresh).data,
@@ -135,11 +128,7 @@ def get_ticker_detail(client, symbol: str, alerts, force_refresh: bool = False, 
         "operating_income_yoy_growth": client.get_metric_frame(symbol, "quarterly_operating_income_yoy_growth", force_refresh=force_refresh).data,
         "eps_yoy_growth": client.get_metric_frame(symbol, "quarterly_eps_yoy_growth", force_refresh=force_refresh).data,
     }
-    revenue_breakdown = {
-        "segment": client.get_revenue_by_segment(symbol, force_refresh=force_refresh).data,
-        "geography": client.get_revenue_by_geography(symbol, force_refresh=force_refresh).data,
-    }
-    errors = info.errors + price.errors + news.errors + filings.errors + calendar.errors + transcripts.errors
+    errors = info.errors + price.errors + news.errors + calendar.errors
     return TickerDetailBundle(
         symbol=symbol,
         info=info.data,
@@ -148,10 +137,7 @@ def get_ticker_detail(client, symbol: str, alerts, force_refresh: bool = False, 
         quality=quality,
         growth=growth,
         news=news.data,
-        filings=filings.data,
         calendar=calendar.data,
-        revenue_breakdown=revenue_breakdown,
-        transcripts=transcripts.data,
         alerts=alerts,
         errors=errors,
         role_label=role_label,

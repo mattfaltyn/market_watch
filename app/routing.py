@@ -102,7 +102,7 @@ def dispatch_page_safe(
             title="Unable to load market data",
             errors=[str(exc)],
             guidance=[
-                "Confirm you have network access to the defeatbeta-api upstream data source.",
+                "Confirm you have network access to Yahoo Finance (yfinance).",
                 "Try the Refresh Data button after the initial data cache is populated.",
                 "Check the terminal for the full traceback if the problem persists.",
             ],

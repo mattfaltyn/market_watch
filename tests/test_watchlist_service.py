@@ -24,9 +24,6 @@ class FakeClient:
     def get_news(self, symbol, force_refresh=False):
         return DataResult(pd.DataFrame({"publish_time": [pd.Timestamp.now(tz="UTC").normalize()], "title": ["note"]}))
 
-    def get_filings(self, symbol, force_refresh=False):
-        return DataResult(pd.DataFrame({"filing_date": [pd.Timestamp.now(tz="UTC").normalize()], "form_type": ["10-Q"]}))
-
     def get_metric_frame(self, symbol, method_name, ttl=None, force_refresh=False):
         mapping = {
             "ttm_pe": pd.DataFrame({"report_date": [pd.Timestamp("2024-12-31")], "ttm_pe": [25.0]}),

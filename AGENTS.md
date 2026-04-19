@@ -4,7 +4,7 @@ Guidance for coding agents and contributors working on **market_watch**.
 
 ## Project summary
 
-Local-first **KISS regime and market-indicators** dashboard built with **Plotly Dash** and **`defeatbeta-api`**. The home experience is regime-first (quadrant, drivers, historical transitions, confirmation assets). Legacy portfolio implementation remains on `/implementation`.
+Local-first **KISS regime and market-indicators** dashboard built with **Plotly Dash** and **`yfinance`** (Yahoo Finance). The home experience is regime-first (quadrant, drivers, historical transitions, confirmation assets). Legacy portfolio implementation remains on `/implementation`.
 
 ## Repository map
 
@@ -17,9 +17,9 @@ Local-first **KISS regime and market-indicators** dashboard built with **Plotly 
 | [`app/components/`](app/components/) | Reusable UI (`ui.py`, CSS constants) |
 | [`app/pages/`](app/pages/) | Per-route layout builders |
 | [`app/services/`](app/services/) | Regime, VAMS, regime history, portfolio, market, watchlist, signals |
-| [`app/data/`](app/data/) | `FileCache`, `DefeatBetaClient` (defeatbeta + optional yfinance fallback), `yfinance_client` |
-| [`config/settings.yaml`](config/settings.yaml) | Methodology, symbols, TTLs, `price_fetch_overrides` |
-| [`tests/`](tests/) | Pytest suite (fakes for defeatbeta-shaped clients) |
+| [`app/data/`](app/data/) | `FileCache`, [`MarketDataClient`](app/data/yfinance_client.py) (Yahoo Finance) |
+| [`config/settings.yaml`](config/settings.yaml) | Methodology, symbols, TTLs |
+| [`tests/`](tests/) | Pytest suite (fakes for `MarketDataClient`-shaped clients) |
 | [`docs/`](docs/) | Architecture, configuration, caching, development, routing |
 
 ## Setup and run
@@ -49,19 +49,19 @@ The default pytest invocation runs workers in parallel and enforces **100% branc
 
 - Primary file: [`config/settings.yaml`](config/settings.yaml).
 - Details: [`docs/configuration.md`](docs/configuration.md).
-- **Symbol coverage:** Not every logical ticker has a defeatbeta price series; the client falls back to Yahoo Finance via `yfinance` before relying on `kiss.price_fetch_overrides`. See [`docs/data-and-caching.md`](docs/data-and-caching.md).
+- **Treasury short end:** `bc2_year` in the client uses Yahoo’s **5Y** index (`^FVX`) as a stand-in for a 2Y series; see [`docs/data-and-caching.md`](docs/data-and-caching.md).
 
 ## Coding expectations
 
 - **Python 3.11+**; match existing typing and module layout.
 - **Scope:** Change only what the task requires; no unrelated refactors.
-- **Data access:** Use `DefeatBetaClient` and existing services; avoid ad-hoc duplicate fetch logic.
+- **Data access:** Use `MarketDataClient` and existing services; avoid ad-hoc duplicate fetch logic.
 - **UI:** Prefer [`app/components/ui.py`](app/components/ui.py); keep the visual-first product style.
 
 ## Do not
 
 - Commit secrets, `.env`, or `.cache/` blobs.
-- Assume `get_prices(logical_symbol)` always returns defeatbeta-shaped rows without considering fallbacks or empty upstream frames.
+- Assume `get_prices(symbol)` always returns non-empty upstream frames.
 - Add large generated artifacts or lockfiles unless the task explicitly requires them.
 
 ## Common tasks
@@ -73,7 +73,7 @@ The default pytest invocation runs workers in parallel and enforces **100% branc
 | VAMS math | [`app/services/vams.py`](app/services/vams.py) |
 | Legacy allocation | [`app/services/kiss_portfolio.py`](app/services/kiss_portfolio.py), [`app/pages/implementation.py`](app/pages/implementation.py) |
 | New config knobs | [`config/settings.yaml`](config/settings.yaml) + [`app/config.py`](app/config.py) if exposing properties |
-| defeatbeta integration | [`app/data/defeatbeta_client.py`](app/data/defeatbeta_client.py) |
+| Yahoo / cache integration | [`app/data/yfinance_client.py`](app/data/yfinance_client.py) |
 | Tests | [`tests/`](tests/) — mirror fake-client patterns in `test_regime_history.py` / `test_pages.py` |
 
 ## Further reading

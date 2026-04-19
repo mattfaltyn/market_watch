@@ -34,6 +34,7 @@ def test_sparkline_pie_line_bar_exposure():
     assert ui.make_line_chart(df, "report_date", ["y"], "t", compact=True) is not None
     assert ui.make_bar_chart(pd.DataFrame({"report_date": [pd.Timestamp("2024-01-01")]}), "report_date", "t") is not None
     assert ui.make_bar_chart(pd.DataFrame({"report_date": [pd.Timestamp("2024-01-01")], "v": [1.0]}), "report_date", "t") is not None
+    assert ui.make_bar_chart(pd.DataFrame({"a": [1]}), "missing_col", "t") is not None
 
 
 def test_exposure_signal_meter_metric_card_sparkline():

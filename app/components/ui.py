@@ -101,7 +101,7 @@ def app_shell(
                                     html.Div(
                                         className="status-strip",
                                         children=[
-                                            _status_item("Source", str(status_meta.get("source", "defeatbeta-api"))),
+                                            _status_item("Source", str(status_meta.get("source", "yfinance"))),
                                             _status_item("As of", _format_timestamp(status_meta.get("as_of"))),
                                             _status_item("Scope", str(status_meta.get("scope", "KISS"))),
                                         ],

@@ -2,7 +2,7 @@
 
 ## Overview
 
-`market_watch` is a **local-first** Plotly Dash application. A single location-based callback in [`app/main.py`](../app/main.py) loads data through a shared [`DefeatBetaClient`](../app/data/defeatbeta_client.py) and renders the appropriate page from [`app/pages/`](../app/pages/).
+`market_watch` is a **local-first** Plotly Dash application. A single location-based callback in [`app/main.py`](../app/main.py) loads data through a shared [`MarketDataClient`](../app/data/yfinance_client.py) and renders the appropriate page from [`app/pages/`](../app/pages/).
 
 ## Layers
 
@@ -11,7 +11,7 @@
 | **UI** | Dash layout callbacks, [`app/components/ui.py`](../app/components/ui.py) |
 | **Pages** | Route-specific composition in [`app/pages/`](../app/pages/) |
 | **Services** | Regime, VAMS, portfolio, market snapshots in [`app/services/`](../app/services/) |
-| **Data** | [`DefeatBetaClient`](../app/data/defeatbeta_client.py) wraps `defeatbeta-api` with optional [`yfinance`](../app/data/yfinance_client.py) fallback for missing series; [`FileCache`](../app/data/cache.py) persists pickled frames |
+| **Data** | [`MarketDataClient`](../app/data/yfinance_client.py) wraps **yfinance** (Yahoo Finance) with [`FileCache`](../app/data/cache.py) for pickled frames |
 | **Config** | [`app/config.py`](../app/config.py) loads [`config/settings.yaml`](../config/settings.yaml) |
 
 ## Data flow
@@ -30,9 +30,9 @@ flowchart LR
     wl[watchlist_snapshot]
   end
   subgraph data [Data layer]
-    client[DefeatBetaClient]
-    yf[yfinance_client]
+    client[MarketDataClient]
     cache[FileCache]
+    yf[yfinance]
   end
   main --> regime_hist
   main --> kiss_reg
@@ -46,8 +46,8 @@ flowchart LR
   portfolio --> client
   mkt --> client
   wl --> client
-  client --> yf
   client --> cache
+  client --> yf
 ```
 
 ## Core services
@@ -61,7 +61,7 @@ flowchart LR
 
 ## Price symbols and data sources
 
-[`DefeatBetaClient.get_prices`](../app/data/defeatbeta_client.py) loads the **logical** symbol from defeatbeta first. If the series is empty, it falls back to Yahoo Finance via [`fetch_prices_yfinance`](../app/data/yfinance_client.py) (same column shape). [`last_price_source`](../app/data/defeatbeta_client.py) records `defeatbeta` vs `yfinance` for optional UI labels. Optionally, `kiss.price_fetch_overrides` can still map a logical symbol to another defeatbeta ticker before the yfinance step. See [configuration.md](configuration.md) and [data-and-caching.md](data-and-caching.md).
+[`MarketDataClient.get_prices`](../app/data/yfinance_client.py) loads the **logical** symbol from Yahoo Finance. [`last_price_source`](../app/data/yfinance_client.py) records `yfinance` for UI labels (e.g. “via Yahoo Finance”). Treasury yields and S&P 500 annual return history use the same client; see [data-and-caching.md](data-and-caching.md) for ticker proxies (`^TNX`, `^FVX`, `^GSPC`, etc.).
 
 ## Regime inputs when data is missing
 

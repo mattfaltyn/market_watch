@@ -42,12 +42,12 @@ Optional smoke import:
 ## Code style
 
 - Match neighboring modules: typing style, dataclasses in [`app/models.py`](../app/models.py), service patterns in [`app/services/`](../app/services/).
-- Prefer **extending** existing services and [`DefeatBetaClient`](../app/data/defeatbeta_client.py) over parallel data layers.
+- Prefer **extending** existing services and [`MarketDataClient`](../app/data/yfinance_client.py) over parallel data layers.
 - Keep changes **scoped** to the task; avoid drive-by refactors and unrelated formatting churn.
 
 ## Tests and fakes
 
-Integration-style tests use **fake clients** that implement the subset of `DefeatBetaClient` methods each service needs (see [`tests/test_regime_history.py`](../tests/test_regime_history.py), [`tests/test_pages.py`](../tests/test_pages.py)). Follow that pattern for new service tests.
+Integration-style tests use **fake clients** that implement the subset of `MarketDataClient` methods each service needs (see [`tests/test_regime_history.py`](../tests/test_regime_history.py), [`tests/test_pages.py`](../tests/test_pages.py)). Follow that pattern for new service tests.
 
 ## Documentation
 

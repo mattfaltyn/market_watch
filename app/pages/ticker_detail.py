@@ -9,12 +9,9 @@ from app.components.ui import (
     badge,
     error_box,
     feed_panel,
-    make_bar_chart,
     make_line_chart,
-    make_table,
     section_panel,
     signal_meter,
-    stat_chip,
 )
 from app.models import TickerDetailBundle
 
@@ -95,21 +92,7 @@ def render_ticker_detail(bundle: TickerDetailBundle):
                     ),
                 ],
             ),
-            html.Div(
-                className="two-col",
-                children=[
-                    feed_panel("News Feed", bundle.news, "title", ["publish_time", "publisher", "source"]),
-                    feed_panel("Filing Feed", bundle.filings, "form_type", ["filing_date", "report_date"]),
-                ],
-            ),
-            html.Div(
-                className="two-col",
-                children=[
-                    section_panel("Segment Mix", [make_bar_chart(bundle.revenue_breakdown.get("segment", pd.DataFrame()), "report_date", "Latest Segment Mix", semantic="market")]),
-                    section_panel("Geography Mix", [make_bar_chart(bundle.revenue_breakdown.get("geography", pd.DataFrame()), "report_date", "Latest Geographic Mix", semantic="market")]),
-                ],
-            ),
-            section_panel("Transcript Grid", [make_table(bundle.transcripts.head(20))], subtitle="Availability and dates"),
+            feed_panel("News Feed", bundle.news, "title", ["publish_time", "publisher", "source"]),
         ],
         page_title=f"{bundle.symbol} regime intelligence panel.",
         active_page="ticker",

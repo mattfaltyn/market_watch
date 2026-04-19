@@ -42,7 +42,6 @@ def render_watchlist(snapshot: pd.DataFrame, errors: list[str]):
                             "ttm_pe",
                             "industry_ttm_pe",
                             "recent_news_7d",
-                            "filing_count_30d",
                             "alert_count",
                             "alerts",
                             "detail",
@@ -50,7 +49,7 @@ def render_watchlist(snapshot: pd.DataFrame, errors: list[str]):
                     ]
                     if not display.empty
                     else display,
-                    numeric_columns=["close", "return_1d", "return_5d", "return_1m", "beta_1y", "days_to_earnings", "ttm_pe", "industry_ttm_pe", "recent_news_7d", "filing_count_30d", "alert_count"],
+                    numeric_columns=["close", "return_1d", "return_5d", "return_1m", "beta_1y", "days_to_earnings", "ttm_pe", "industry_ttm_pe", "recent_news_7d", "alert_count"],
                 ),
             ]),
         ],

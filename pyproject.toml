@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "market-watch-dashboard"
 version = "0.1.0"
-description = "Local-first KISS regime and market-indicators dashboard built with Dash and defeatbeta-api"
+description = "Local-first KISS regime and market-indicators dashboard built with Dash and yfinance"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -13,7 +13,6 @@ dependencies = [
   "pandas>=2.2.3",
   "plotly>=5.24.1",
   "PyYAML>=6.0.2",
-  "defeatbeta-api",
   "yfinance>=0.2.40",
 ]
 

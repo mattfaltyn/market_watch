@@ -28,18 +28,17 @@ def test_app_config_properties_defaults():
     assert cfg.vams_multipliers == {}
     assert cfg.regime_inputs == {}
     assert cfg.market_watch_symbols == []
-    assert cfg.price_fetch_overrides == {}
     assert cfg.sleeve_symbols == []
 
 
-def test_price_fetch_overrides_strips_keys():
+def test_market_watch_symbols_normalizes_case():
     cfg = AppConfig(
-        kiss={"price_fetch_overrides": {"  agg  ": " TLT "}},
+        kiss={"market_watch_symbols": ["spy", "qqq"]},
         chart_windows={},
         cache={},
         alert_thresholds={},
     )
-    assert cfg.price_fetch_overrides == {"agg": "TLT"}
+    assert cfg.market_watch_symbols == ["SPY", "QQQ"]
 
 
 def test_cache_ttl_expired(monkeypatch, tmp_path: Path):

@@ -6,24 +6,18 @@ from dash import Input, Output, State, dcc, html
 from app.components.ui import APP_CSS
 from app.config import ROOT_DIR, load_config
 from app.data.cache import FileCache
-from app.data.defeatbeta_client import CachePolicy, DefeatBetaClient
-from app.data.yfinance_client import YFinanceFetcher
+from app.data.yfinance_client import CachePolicy, MarketDataClient
 from app.routing import dispatch_page_safe, refresh_state_payload
 
 CONFIG = load_config()
 CACHE = FileCache(ROOT_DIR / ".cache", default_ttl_seconds=int(CONFIG.cache.get("default_ttl_seconds", 3600)))
-_YF = YFinanceFetcher()
-CLIENT = DefeatBetaClient(
+CLIENT = MarketDataClient(
     cache=CACHE,
     policy=CachePolicy(
         market_ttl_seconds=int(CONFIG.cache.get("market_ttl_seconds", 900)),
         fundamentals_ttl_seconds=int(CONFIG.cache.get("fundamentals_ttl_seconds", 21600)),
         news_ttl_seconds=int(CONFIG.cache.get("news_ttl_seconds", 1800)),
-        filings_ttl_seconds=int(CONFIG.cache.get("filings_ttl_seconds", 21600)),
-        transcripts_ttl_seconds=int(CONFIG.cache.get("transcripts_ttl_seconds", 43200)),
     ),
-    price_fetch_overrides=CONFIG.price_fetch_overrides,
-    fallback_fetcher=_YF.fetch_prices,
 )
 
 

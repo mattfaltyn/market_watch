@@ -43,12 +43,6 @@ class AppConfig:
         return [str(symbol).upper() for symbol in self.kiss.get("market_watch_symbols", [])]
 
     @property
-    def price_fetch_overrides(self) -> dict[str, str]:
-        """Map logical symbols (UI / methodology) to defeatbeta tickers when the primary has no series."""
-        raw = self.kiss.get("price_fetch_overrides") or {}
-        return {str(k).strip(): str(v).strip() for k, v in raw.items()}
-
-    @property
     def sleeve_symbols(self) -> list[str]:
         return [str(symbol).upper() for symbol in self.sleeves.values()]
 

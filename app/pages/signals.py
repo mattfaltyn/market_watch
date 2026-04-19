@@ -86,7 +86,7 @@ def render_signals(snapshot: RegimeOverviewSnapshot, errors: list[str]):
                     section_panel(
                         "Transitions",
                         [transition_strip(snapshot.transitions)],
-                        subtitle="Derived from defeatbeta-api history",
+                        subtitle="Derived from Yahoo Finance history",
                     ),
                 ],
             ),

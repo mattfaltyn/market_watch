@@ -1,4 +1,4 @@
-"""Fake defeatbeta-shaped client for routing and integration-style tests."""
+"""Fake MarketDataClient-shaped client for routing and integration-style tests."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ def treasury_frame(periods: int = 40) -> pd.DataFrame:
 
 
 class RoutingFakeClient:
-    """Implements the subset of DefeatBetaClient used by dispatch_page and downstream services."""
+    """Implements the subset of MarketDataClient used by dispatch_page and downstream services."""
 
     def __init__(self, boom: bool = False):
         self.boom = boom
@@ -91,12 +91,6 @@ class RoutingFakeClient:
     def get_news(self, symbol, force_refresh=False):
         return DataResult(pd.DataFrame({"publish_time": [pd.Timestamp.now(tz="UTC").normalize()], "title": ["n"], "publisher": ["p"], "source": ["s"]}))
 
-    def get_filings(self, symbol, force_refresh=False):
-        return DataResult(pd.DataFrame({"filing_date": [pd.Timestamp.now(tz="UTC").normalize()], "form_type": ["10-K"], "report_date": [pd.Timestamp.now(tz="UTC").normalize()]}))
-
-    def get_transcripts(self, symbol, force_refresh=False):
-        return DataResult(pd.DataFrame())
-
     def get_info(self, symbol, force_refresh=False):
         return DataResult(
             pd.DataFrame(
@@ -125,12 +119,6 @@ class RoutingFakeClient:
             "quarterly_eps_yoy_growth": pd.DataFrame({"report_date": [pd.Timestamp("2024-12-31")], "eps_yoy_growth": [0.08]}),
         }
         return DataResult(templates.get(method_name, pd.DataFrame()))
-
-    def get_revenue_by_segment(self, symbol, force_refresh=False):
-        return DataResult(pd.DataFrame({"report_date": [pd.Timestamp("2024-12-31")], "segment": ["A"], "revenue": [1.0]}))
-
-    def get_revenue_by_geography(self, symbol, force_refresh=False):
-        return DataResult(pd.DataFrame({"report_date": [pd.Timestamp("2024-12-31")], "region": ["US"], "revenue": [1.0]}))
 
     @staticmethod
     def latest_timestamp(frames):

@@ -90,10 +90,7 @@ def test_ticker_detail_eps_format_branch():
         quality={"roe": pd.DataFrame({"report_date": [pd.Timestamp("2024-01-01")], "roe": [float("nan")]})},
         growth={"eps_yoy_growth": pd.DataFrame({"report_date": [pd.Timestamp("2024-01-01")], "eps_yoy_growth": [3.5]})},
         news=pd.DataFrame(),
-        filings=pd.DataFrame(),
         calendar=pd.DataFrame(),
-        revenue_breakdown={"segment": pd.DataFrame(), "geography": pd.DataFrame()},
-        transcripts=pd.DataFrame(),
         alerts=[],
         errors=[],
         role_label=None,
@@ -170,9 +167,6 @@ class WLClient:
     def get_news(self, symbol, force_refresh=False):
         return DataResult(pd.DataFrame())
 
-    def get_filings(self, symbol, force_refresh=False):
-        return DataResult(pd.DataFrame())
-
     def get_metric_frame(self, symbol, method_name, ttl=None, force_refresh=False):
         return DataResult(pd.DataFrame())
 
@@ -182,18 +176,12 @@ class WLClient:
         )
 
 
-def test_watchlist_calendar_and_filings_edges():
+def test_watchlist_calendar_edges():
     class CalClient(WLClient):
         def get_calendar(self, symbol, force_refresh=False):
             return DataResult(pd.DataFrame({"earning_date": [pd.Timestamp("2000-01-01")]}))
 
     build_watchlist_snapshot(CalClient(), ["SPY"], "SPY", {"large_move_1d": 0.01, "valuation_industry_gap": 0.2})
-
-    class FilingsClient(WLClient):
-        def get_filings(self, symbol, force_refresh=False):
-            return DataResult(pd.DataFrame({"filing_date": [pd.Timestamp("2000-01-01")], "form_type": ["8-K"]}))
-
-    build_watchlist_snapshot(FilingsClient(), ["SPY"], "SPY", {"large_move_1d": 0.01, "valuation_industry_gap": 0.2})
 
     class NaNCalClient(WLClient):
         def get_calendar(self, symbol, force_refresh=False):

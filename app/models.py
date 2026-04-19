@@ -212,10 +212,7 @@ class TickerDetailBundle:
     quality: dict[str, pd.DataFrame]
     growth: dict[str, pd.DataFrame]
     news: pd.DataFrame
-    filings: pd.DataFrame
     calendar: pd.DataFrame
-    revenue_breakdown: dict[str, pd.DataFrame]
-    transcripts: pd.DataFrame
     alerts: list[AlertFlag] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     role_label: str | None = None
