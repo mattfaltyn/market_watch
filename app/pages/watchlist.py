@@ -5,7 +5,7 @@ import pandas as pd
 from dash import html
 
 from app.components.tables import make_table
-from app.components.ui import app_shell, metric_card
+from app.components.ui import app_shell, badge, metric_card, section_panel
 from app.config import AppConfig
 from app.models import MetricCard
 
@@ -61,16 +61,28 @@ def render_watchlist(snapshot: pd.DataFrame, errors: list[str], config: AppConfi
     table_body = display[table_cols] if not display.empty and all(c in display.columns for c in table_cols) else display
 
     body = [
-        dmc.SimpleGrid([metric_card(card) for card in cards], cols={"base": 1, "sm": 2, "lg": 4}, spacing="md"),
-        dmc.Title("Watchlist Snapshot", order=3, mt="lg"),
-        dmc.Text("Sort for event risk, valuation stretch, and short-term price pressure.", size="sm", c="dimmed", mb="sm"),
-        make_table(
-            table_body,
-            link_column="detail",
-            numeric_columns=["close", "return_1d", "return_5d", "return_1m", "beta_1y", "days_to_earnings", "ttm_pe", "industry_ttm_pe", "recent_news_7d", "alert_count"],
-        )
-        if not display.empty
-        else dmc.Text("No symbols configured in settings.", c="dimmed"),
+        html.Div(className="kpi-strip", children=[metric_card(card) for card in cards]),
+        section_panel(
+            "Watchlist Snapshot",
+            [
+                html.Div(
+                    className="watchlist-summary",
+                    children=[
+                        html.Div("Sort for event risk, valuation stretch, and short-term price pressure.", className="watchlist-note"),
+                        badge(f"{len(snapshot.index)} symbols", "market"),
+                    ],
+                ),
+                make_table(
+                    table_body,
+                    link_column="detail",
+                    numeric_columns=["close", "return_1d", "return_5d", "return_1m", "beta_1y", "days_to_earnings", "ttm_pe", "industry_ttm_pe", "recent_news_7d", "alert_count"],
+                )
+                if not display.empty
+                else html.Div("No symbols configured in settings.", className="empty-state"),
+            ],
+            subtitle="Primary watchlist table with returns, catalysts, valuation, and alert context",
+            header_right=badge("Sortable", "positive"),
+        ),
     ]
 
     return app_shell(

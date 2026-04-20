@@ -76,6 +76,10 @@ def test_regime_overview_renders():
     cfg = load_config()
     layout = render_regime_overview(_regime_snapshot(), [], cfg)
     assert layout is not None
+    body = layout.children[1].children[0]
+    assert body.children[0].className == "overview-hero"
+    assert body.children[1].className == "kpi-strip"
+    assert body.children[2].className == "hero-grid"
 
 
 def test_regime_overview_renders_with_empty_regime_history():

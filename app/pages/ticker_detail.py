@@ -119,6 +119,15 @@ def render_ticker_detail(bundle: TickerDetailBundle, config: AppConfig):
     ]
 
     yahoo_url = f"https://finance.yahoo.com/quote/{bundle.symbol}"
+    header_stats = html.Div(
+        className="hero-detail-row",
+        children=[
+            _mini_stat("ROE", roe),
+            _mini_stat("ROIC", roic),
+            _mini_stat("Revenue YoY", revenue_growth),
+            _mini_stat("EPS YoY", eps_growth),
+        ],
+    )
 
     return app_shell(
         [
@@ -129,8 +138,13 @@ def render_ticker_detail(bundle: TickerDetailBundle, config: AppConfig):
                     section_panel(
                         "Ticker Header",
                         [
-                            html.Div(bundle.symbol, className="ticker-symbol"),
-                            html.Div(company_name, className="ticker-company"),
+                            html.Div(
+                                className="ticker-title-block",
+                                children=[
+                                    html.Div(bundle.symbol, className="ticker-symbol"),
+                                    html.Div(company_name, className="ticker-company"),
+                                ],
+                            ),
                             html.Div(
                                 className="meta-row",
                                 children=[
@@ -141,10 +155,19 @@ def render_ticker_detail(bundle: TickerDetailBundle, config: AppConfig):
                                     dcc.Link("Yahoo Finance", href=yahoo_url, target="_blank"),
                                 ],
                             ),
+                            header_stats,
                         ],
                         subtitle="Company context",
+                        header_right=badge(bundle.symbol, "market"),
+                        variant="shell",
                     ),
-                    dmc.Stack(alert_blocks, gap="sm") if alert_blocks else alert_list(bundle.alerts, title="Alert Panel"),
+                    section_panel(
+                        "Alert Panel",
+                        [dmc.Stack(alert_blocks, gap="sm")] if alert_blocks else [html.Div("No active alerts for this symbol.", className="empty-state")],
+                        subtitle="Threshold-driven warnings and review cues",
+                        header_right=badge(f"{len(bundle.alerts)} active", alert_tone),
+                        variant="inset",
+                    ),
                 ],
             ),
             html.Div(
@@ -155,10 +178,9 @@ def render_ticker_detail(bundle: TickerDetailBundle, config: AppConfig):
                     section_panel("Quality / Growth", [quality_panel], subtitle="Latest fundamentals"),
                 ],
             ),
-            section_panel("News", [news_block], subtitle="Recent headlines"),
+            section_panel("News", [news_block], subtitle="Recent headlines", header_right=badge("Recent", "market")),
         ],
         page_title=f"{bundle.symbol} regime intelligence panel.",
         active_page="ticker",
         status_meta={"as_of": bundle.as_of, "scope": bundle.symbol, "source": "yfinance"},
     )
-

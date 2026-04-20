@@ -61,7 +61,9 @@ def test_delta_transition_strips_and_table():
     assert ui.transition_strip([SignalTransition("BTC-X", "a", "b", None, 1, "c")]) is not None
 
     df = pd.DataFrame({"a": [1], "return_1d": [0.5], "large": [2000.0]})
-    assert ui.make_table(df) is not None
+    table = ui.make_table(df)
+    assert table is not None
+    assert getattr(table, "className", "") == "data-table-panel"
     assert ui.make_table(df, link_column="a", numeric_columns=["return_1d"]) is not None
     assert ui.make_table(df, column_formatters={"a": str}) is not None
 
@@ -105,6 +107,7 @@ def test_normalize_status_meta_and_warning_alerts():
 def test_app_shell_accepts_non_list_children():
     layout = app_shell(html.Div("solo"), page_title="t", active_page="overview", status_meta={"as_of": None})
     assert layout is not None
+    assert layout.children[0].className == "app-frame"
 
 
 def test_line_chart_secondary_y_and_reference_lines():

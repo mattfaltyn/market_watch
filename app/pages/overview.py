@@ -15,6 +15,7 @@ from app.components.ui import (
     metric_card,
     section_panel,
     signal_meter,
+    stat_chip,
     transition_strip,
 )
 from app.config import AppConfig
@@ -89,6 +90,7 @@ def render_regime_overview(snapshot: RegimeOverviewSnapshot, errors: list[str], 
     regime_transition = next((transition for transition in snapshot.transitions if transition.label == "Regime"), None)
     weak_thr = float(config.regime_inputs.get("weak_score_threshold", 0.10))
     vol_hi = float(config.alert_thresholds.get("volatility_high_threshold", 0.35))
+    benchmark_tiles = _benchmark_tiles(snapshot)
 
     kpis = [
         MetricCard("Current Regime", regime.regime.title(), f"Strength {regime.regime_strength:.2f}", tone="market", icon="◫", emphasis="high"),
@@ -120,46 +122,64 @@ def render_regime_overview(snapshot: RegimeOverviewSnapshot, errors: list[str], 
     history_frame = _history_frame(snapshot)
 
     strength_pct = min(100.0, max(0.0, regime.regime_strength * 100.0))
-    hero = dmc.Paper(
+    hero = html.Div(
+        className="overview-hero",
         children=[
-            dmc.Group(
-                [
-                    dmc.Stack(
-                        [
-                            dmc.Group([dmc.Title(regime.regime.title(), order=2), badge(regime.hybrid_label, "warning") if regime.hybrid_label else badge("Confirmed", "positive")]),
-                            dmc.Text("Composite scores use a −1…+1 proxy scale per methodology.", size="xs", c="dimmed"),
+            html.Div(
+                className="hero-main",
+                children=[
+                    html.Div(
+                        className="hero-summary",
+                        children=[
+                            html.Div(
+                                className="hero-regime-row",
+                                children=[
+                                    html.H2(regime.regime.title(), className="hero-regime"),
+                                    badge(regime.hybrid_label, "warning") if regime.hybrid_label else badge("Confirmed", "positive"),
+                                    badge(f"Growth {regime.growth_direction.upper()}", "positive" if regime.growth_direction == "up" else "negative"),
+                                    badge(f"Inflation {regime.inflation_direction.upper()}", "warning" if regime.inflation_direction == "up" else "positive"),
+                                ],
+                            ),
+                            html.Div(snapshot.summary_text or "Composite scores use a −1…+1 proxy scale per methodology.", className="hero-copy"),
+                            html.Div(
+                                className="hero-detail-row",
+                                children=[
+                                    stat
+                                    for stat in [
+                                        dmc.Tooltip(
+                                            label=f"Growth composite (−1 bearish … +1 bullish). Weak if |score| < {weak_thr:.2f}.",
+                                            children=stat_chip("Growth Score", f"{growth_score:+.2f}", "positive" if growth_score >= 0 else "negative"),
+                                        ),
+                                        dmc.Tooltip(
+                                            label=f"Inflation composite (−1 … +1). Weak if |score| < {weak_thr:.2f}.",
+                                            children=stat_chip("Inflation Score", f"{inflation_score:+.2f}", "warning" if inflation_score >= 0 else "positive"),
+                                        ),
+                                        stat_chip("Confirmations", str(len(snapshot.confirmations)), "market"),
+                                        stat_chip("Weak Threshold", f"{weak_thr:.2f}", "neutral"),
+                                    ]
+                                ],
+                            ),
+                            html.Div(
+                                f"Last flip: {regime_transition.caption}" if regime_transition else "No recent regime transition recorded.",
+                                className="hero-support-text",
+                            ),
                         ],
-                        gap="xs",
                     ),
-                    dmc.RingProgress(
-                        sections=[{"value": strength_pct, "color": "cyan"}],
-                        size=120,
-                        thickness=12,
-                        label=dmc.Text(f"{regime.regime_strength:.2f}", size="lg", fw=700),
+                    html.Div(
+                        className="hero-gauge tone-market",
+                        children=[
+                            html.Div("Regime Strength", className="hero-gauge-label"),
+                            html.Div(f"{regime.regime_strength:.2f}", className="hero-gauge-value"),
+                            html.Div(className="hero-band", children=[html.Div(className="hero-band-fill", style={"width": f"{strength_pct:.1f}%"})]),
+                            html.Div(
+                                f"Mean absolute growth/inflation score. Volatility alert threshold {vol_hi:.0%}.",
+                                className="hero-gauge-caption",
+                            ),
+                        ],
                     ),
                 ],
-                justify="space-between",
-                align="center",
-            ),
-            dmc.Divider(my="md"),
-            dmc.Group(
-                [
-                    dmc.Tooltip(
-                        label=f"Growth composite (−1 bearish … +1 bullish). Weak if |score| < {weak_thr:.2f}.",
-                        children=dmc.Badge(f"Growth {regime.growth_direction.upper()}", color="green" if regime.growth_direction == "up" else "red", variant="light"),
-                    ),
-                    dmc.Tooltip(
-                        label=f"Inflation composite (−1 … +1). Weak if |score| < {weak_thr:.2f}.",
-                        children=dmc.Badge(f"Inflation {regime.inflation_direction.upper()}", color="orange" if regime.inflation_direction == "up" else "teal", variant="light"),
-                    ),
-                    dmc.Text(f"Last flip: {regime_transition.caption}" if regime_transition else "", size="sm", c="dimmed"),
-                ],
-                gap="md",
             ),
         ],
-        p="lg",
-        radius="lg",
-        withBorder=True,
     )
 
     confirmation_cards = []
@@ -178,15 +198,7 @@ def render_regime_overview(snapshot: RegimeOverviewSnapshot, errors: list[str], 
                     signal_meter(confirmation.score, -1.0, 1.0, "Score", "market" if confirmation.score >= 0 else "negative"),
                     signal_meter(confirmation.trend or 0.0, -1.0, 1.0, "Trend", "market" if (confirmation.trend or 0.0) >= 0 else "negative"),
                     signal_meter(confirmation.momentum or 0.0, -1.0, 1.0, "Momentum", "market" if (confirmation.momentum or 0.0) >= 0 else "negative"),
-                    signal_meter(
-                        confirmation.volatility or 0.0,
-                        0.0,
-                        1.0,
-                        "Volatility",
-                        "warning",
-                        threshold_mark=vol_hi,
-                        threshold_label=f"High vol {vol_hi:.0%}",
-                    ),
+                    signal_meter(confirmation.volatility or 0.0, 0.0, 1.0, "Volatility", "warning", threshold_mark=vol_hi, threshold_label=f"High vol {vol_hi:.0%}"),
                     dmc.Text(confirmation.last_transition.caption if confirmation.last_transition else "No transition history", size="xs", c="dimmed"),
                 ],
                 p="md",
@@ -318,7 +330,7 @@ def render_regime_overview(snapshot: RegimeOverviewSnapshot, errors: list[str], 
     return app_shell(
         [
             hero,
-            html.Div(className="four-col", children=[metric_card(card) for card in kpis]),
+            html.Div(className="kpi-strip", children=[metric_card(card) for card in kpis]),
             html.Div(
                 className="hero-grid",
                 children=[
@@ -336,6 +348,7 @@ def render_regime_overview(snapshot: RegimeOverviewSnapshot, errors: list[str], 
                             ),
                         ],
                         subtitle="Current macro environment",
+                        header_right=badge(regime.regime.title(), "market"),
                     ),
                     section_panel(
                         "What Changed",
@@ -344,15 +357,27 @@ def render_regime_overview(snapshot: RegimeOverviewSnapshot, errors: list[str], 
                             dmc.Group(_mover_chips(snapshot), gap="xs", mt="sm"),
                         ],
                         subtitle="Regime / confirmation transitions and top absolute 1D or 5D moves",
+                        header_right=badge(f"{len(snapshot.transitions)} events", "warning" if snapshot.transitions else "neutral"),
                     ),
                 ],
             ),
-            section_panel(
-                "Indicator Tape",
-                [html.Div(className="chart-wall", children=_benchmark_tiles(snapshot))],
-                subtitle="Key KISS market indicators",
+            html.Div(
+                className="two-col",
+                children=[
+                    section_panel(
+                        "Indicator Tape",
+                        [html.Div(className="benchmark-grid", children=benchmark_tiles)],
+                        subtitle="Key KISS market indicators",
+                        header_right=badge(f"{len(benchmark_tiles)} tracked", "market"),
+                    ),
+                    section_panel(
+                        "Confirmation",
+                        [html.Div(className="signal-grid", children=confirmation_cards or [html.Div("No confirmation assets available.", className="empty-state")])],
+                        subtitle="VAMS used as confirmation, not sizing",
+                        header_right=badge(f"{len(snapshot.confirmations)} sleeves", "positive" if snapshot.confirmations else "neutral"),
+                    ),
+                ],
             ),
-            section_panel("Confirmation", [html.Div(className="signal-grid", children=confirmation_cards)], subtitle="VAMS used as confirmation, not sizing"),
             diagnostics,
         ],
         page_title="Regime, drivers, transitions, and confirming assets.",

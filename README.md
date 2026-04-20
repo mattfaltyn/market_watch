@@ -25,12 +25,14 @@ This app is no longer a portfolio-implementation dashboard. It is a regime-and-i
 - which indicators are driving the call
 - whether key assets are confirming the macro backdrop
 
-The current UI is intentionally visual-first:
+The current UI is intentionally visual-first and dark by default:
 
 - the home page is a regime state board
+- the shell uses a compact dark terminal layout with live status and page navigation
 - regime is shown as a growth / inflation quadrant
 - confirmation assets are shown through cards, gauges, chips, and transition rails
 - market indicators are shown as a tape and heat strips
+- watchlist and audit surfaces use dark custom tables instead of a bright spreadsheet-like treatment
 - text is secondary to charts, bars, and signal encoding
 
 The core confirmation assets are:
@@ -147,7 +149,7 @@ The config loader is defined in [app/config.py](app/config.py).
 - The primary product does not depend on app-session memory for “what changed”.
 - There is no persisted history, rebalance ledger, or trade execution integration in v1.
 - The macro regime and VAMS methodologies are approximate and explainable local proxies, not a claim of exact proprietary 42 Macro replication.
-- The UI intentionally keeps `dash_table.DataTable` as a secondary audit surface, but the product is designed to be understood visually before reading detailed text.
+- The UI keeps tabular audit surfaces available through custom dark tables, but the product is designed to be understood visually before reading detailed text.
 
 ## Development
 

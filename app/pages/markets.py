@@ -109,7 +109,12 @@ def render_markets(market: MarketSnapshot, rates: RatesSnapshot, sp500_history: 
         children.append(dmc.Stack(ma_pills, gap="xs"))
     children.extend(
         [
-            section_panel("Benchmark Tape", [html.Div(className="chart-wall", children=benchmark_cards)], subtitle="Configured market-watch symbols"),
+            section_panel(
+                "Benchmark Tape",
+                [html.Div(className="benchmark-grid", children=benchmark_cards or [html.Div("No benchmark symbols configured.", className="empty-state")])],
+                subtitle="Configured market-watch symbols",
+                header_right=badge(f"{len(market.indices)} symbols", "market"),
+            ),
             html.Div(
                 className="two-col",
                 children=[
@@ -117,25 +122,37 @@ def render_markets(market: MarketSnapshot, rates: RatesSnapshot, sp500_history: 
                         "Rates",
                         [rate_level_row, dmc.Text("Yield changes (10Y)", size="xs", c="dimmed", mt="sm"), delta_row],
                         subtitle="Levels vs changes",
+                        header_right=badge("Treasuries", "rates"),
                     ),
                     section_panel(
                         "Breadth",
                         [heatstrip(indicator_values, indicator_labels, value_format="percent"), participation],
                         subtitle="1D moves and participation",
+                        header_right=badge(f"{market.positive_participation_ratio:.0%} positive", "positive" if market.positive_participation_ratio >= 0.5 else "warning"),
                     ),
                 ],
             ),
         ]
     )
+    lower_panels = []
     if curve_labels:
-        children.append(
+        lower_panels.append(
             section_panel(
-                "Yield curve (snapshot)",
+                "Yield Curve Snapshot",
                 [yield_curve_bar(curve_labels, curve_vals, "Treasury proxies")],
                 subtitle="Yahoo Finance proxies; short end uses ^FVX",
+                header_right=badge("Snapshot", "rates"),
             )
         )
-    children.append(section_panel("S&P 500 context", [sp500_chart], subtitle="Annual return series (supporting)"))
+    lower_panels.append(
+        section_panel(
+            "S&P 500 Context",
+            [sp500_chart],
+            subtitle="Annual return series for broader market framing",
+            header_right=badge("Context", "market"),
+        )
+    )
+    children.append(html.Div(className="two-col", children=lower_panels) if len(lower_panels) > 1 else lower_panels[0])
 
     return app_shell(
         children,

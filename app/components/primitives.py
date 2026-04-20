@@ -51,23 +51,31 @@ def normalize_status_meta(meta: dict | None) -> dict:
     return m
 
 
-def section_panel(title: str, children, subtitle: str | None = None, extra_class: str = "") -> dmc.Paper:
-    header = dmc.Stack(
-        [
-            dmc.Group(
-                [
-                    dmc.Text(title, size="sm", fw=700, tt="uppercase", c="cyan.4", style={"letterSpacing": "0.12em"}),
-                ],
-                justify="space-between",
-            ),
-            dmc.Text(subtitle, size="xs", c="dimmed") if subtitle else None,
+def _tone_class(tone: str) -> str:
+    return tone if tone != "neutral" else "neutral_state"
+
+
+def section_panel(
+    title: str,
+    children,
+    subtitle: str | None = None,
+    extra_class: str = "",
+    *,
+    header_right=None,
+    variant: str = "default",
+) -> dmc.Paper:
+    heading = html.Div(
+        className="section-heading",
+        children=[
+            html.Div(title, className="section-title"),
+            html.Div(subtitle, className="section-subtitle") if subtitle else None,
         ],
-        gap=4,
     )
+    header = html.Div(className="section-head", children=[heading, header_right] if header_right else [heading])
     body = html.Div(className="section-body", children=children)
     return dmc.Paper(
         children=[header, body],
-        className=f"section panel {extra_class}".strip(),
+        className=f"section panel variant-{variant} {extra_class}".strip(),
         p="md",
         withBorder=True,
         radius="lg",
@@ -75,7 +83,6 @@ def section_panel(title: str, children, subtitle: str | None = None, extra_class
 
 
 def badge(text: str, tone: str = "neutral") -> dmc.Badge:
-    mapped = "gray" if tone == "neutral" else tone
     color_map = {
         "positive": "green",
         "negative": "red",
@@ -86,11 +93,19 @@ def badge(text: str, tone: str = "neutral") -> dmc.Badge:
         "bearish": "red",
         "neutral_state": "gray",
     }
-    return dmc.Badge(text, color=color_map.get(mapped, "gray"), variant="light", size="sm", tt="uppercase")
+    mapped = _tone_class(tone)
+    return dmc.Badge(
+        text,
+        color=color_map.get(mapped, "gray"),
+        variant="filled",
+        size="sm",
+        tt="uppercase",
+        className=f"market-badge badge-tone-{mapped}",
+    )
 
 
 def stat_chip(label: str, value: str, tone: str = "neutral") -> html.Div:
-    mapped = "neutral_state" if tone == "neutral" else tone
+    mapped = _tone_class(tone)
     return html.Div(
         className=f"stat-chip tone-{mapped}",
         children=[html.Span(label, className="stat-chip-label"), html.Span(value, className="stat-chip-value")],
@@ -101,44 +116,55 @@ def metric_card(card: MetricCard) -> dmc.Paper:
     sparkline = None
     if card.sparkline:
         sparkline = sparkline_chart(card.sparkline, semantic=card.tone)
+    tone = _tone_class(card.tone)
     kids = [
-        dmc.Group(
-            [
-                dmc.Text(card.label, size="xs", c="dimmed", tt="uppercase"),
-                dmc.Text(card.icon or "", size="sm"),
+        html.Div(
+            className="metric-card-shell",
+            children=[
+                html.Div(
+                    className="metric-card-head",
+                    children=[
+                        html.Div(card.label, className="metric-card-label"),
+                        html.Div(card.icon or "", className="metric-card-icon"),
+                    ],
+                ),
+                html.Div(card.value, className="metric-card-value"),
+                html.Div(card.delta, className="metric-card-delta") if card.delta else None,
+                sparkline or html.Div(className="metric-sparkline-placeholder"),
             ],
-            justify="space-between",
-        ),
-        dmc.Text(card.value, size="xl", fw=700),
+        )
     ]
-    if card.delta:
-        kids.append(dmc.Text(card.delta, size="xs", c="dimmed"))
-    kids.append(sparkline or html.Div(className="metric-sparkline-placeholder"))
     return dmc.Paper(
         children=kids,
         p="md",
         radius="lg",
         withBorder=True,
-        className=f"metric-card metric-{card.variant} emphasis-{card.emphasis}",
+        className=f"metric-card metric-{card.variant} emphasis-{card.emphasis} tone-{tone}",
     )
 
 
 def benchmark_card(symbol: str, price: str, delta: str, tone: str, source_note: str | None = None) -> dmc.Paper:
     color = _sleeve_color(symbol)
     children: list = [
-        dmc.Group(
-            [
-                html.Div(style={"width": 10, "height": 10, "borderRadius": 999, "backgroundColor": color}),
-                dmc.Text(symbol, size="sm", fw=700, tt="uppercase"),
+        html.Div(
+            className="benchmark-head",
+            children=[
+                html.Div(
+                    className="benchmark-symbol",
+                    children=[
+                        html.Div(style={"width": 10, "height": 10, "borderRadius": 999, "backgroundColor": color}),
+                        html.Span(symbol),
+                    ],
+                ),
+                badge("UP" if tone == "positive" else "DOWN" if tone == "negative" else "NEUTRAL", tone),
             ],
-            gap="xs",
         ),
-        dmc.Text(price, size="xl", fw=700),
-        dmc.Text(delta, size="xs", c="dimmed"),
+        html.Div(price, className="benchmark-price"),
+        html.Div(delta, className="benchmark-delta"),
     ]
     if source_note:
-        children.append(dmc.Text(source_note, size="xs", c="dimmed"))
-    return dmc.Paper(children=children, p="sm", radius="lg", withBorder=True, className="benchmark-tile")
+        children.append(html.Div(source_note, className="benchmark-note"))
+    return dmc.Paper(children=children, p="sm", radius="lg", withBorder=True, className=f"benchmark-tile tone-{_tone_class(tone)}")
 
 
 def error_box(errors: list[str]) -> html.Div | None:
@@ -172,7 +198,7 @@ def signal_meter(
     span = max_value - min_value or 1.0
     position = ((value - min_value) / span) * 100
     position = max(0.0, min(position, 100.0))
-    thumb_class = f"signal-meter-thumb tone-{semantic if semantic != 'neutral' else 'neutral_state'}"
+    thumb_class = f"signal-meter-thumb tone-{_tone_class(semantic)}"
     extra = []
     if threshold_mark is not None:
         tpos = ((threshold_mark - min_value) / span) * 100
@@ -289,7 +315,7 @@ def sleeve_state_card(allocation: SleeveAllocation, signal: VamsSignal | None = 
     gap = allocation.target_weight - allocation.actual_weight
     signal = signal or VamsSignal(allocation.symbol, allocation.vams_state, 0.0, None, None, None, None, [])
     return html.Div(
-        className=f"sleeve-card tone-{tone if tone != 'neutral' else 'neutral_state'}",
+        className=f"sleeve-card tone-{_tone_class(tone)}",
         children=[
             html.Div(
                 className="sleeve-head",
@@ -314,7 +340,7 @@ def sleeve_state_card(allocation: SleeveAllocation, signal: VamsSignal | None = 
                 children=[
                     signal_meter(allocation.base_weight, 0, 1, "Base", "neutral"),
                     signal_meter(allocation.target_weight, 0, 1, "Target", "market"),
-                    signal_meter(allocation.actual_weight, 0, 1, "Actual", tone if tone != "neutral" else "neutral_state"),
+                    signal_meter(allocation.actual_weight, 0, 1, "Actual", _tone_class(tone)),
                 ],
             ),
             html.Div(
@@ -387,7 +413,7 @@ def heatstrip(
             tone = "neutral_state"
             text = "—"
         else:
-            tone = semantic_map.get(label, "market" if value >= 0 else "negative")
+            tone = _tone_class(semantic_map.get(label, "market" if value >= 0 else "negative"))
             if value_format == "percent":
                 text = f"{value:+.1%}"
             elif value_format == "yield":
@@ -396,7 +422,7 @@ def heatstrip(
                 text = f"{value:+.2f}"
         cells.append(
             html.Div(
-                className=f"heat-cell tone-{tone if tone != 'neutral' else 'neutral_state'}",
+                className=f"heat-cell tone-{tone}",
                 children=[html.Div(label, className="heat-label"), html.Div(text, className="heat-value")],
             )
         )

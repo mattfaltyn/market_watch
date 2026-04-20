@@ -8,9 +8,6 @@ import dash_mantine_components as dmc
 import pandas as pd
 from dash import dcc, html
 
-from app.components.primitives import section_panel
-
-
 def _format_numeric(value: object, column: str) -> object:
     if value is None or (isinstance(value, float) and pd.isna(value)):
         return "—"
@@ -64,16 +61,16 @@ def make_table(
         for col in data.columns:
             val = row[col]
             if link_column and col == link_column and isinstance(val, str) and val.startswith("/"):
-                cells.append(html.Td(dcc.Link("Open", href=val, style={"fontWeight": 600})))
+                cells.append(html.Td(dcc.Link("Open", href=val, className="table-link")))
             else:
                 align = "right" if col in numeric_columns else "left"
                 cells.append(html.Td(str(val), style={"textAlign": align}))
         rows.append(html.Tr(cells))
     tbody = html.Tbody(rows)
     return dmc.Paper(
-        children=[html.Table([thead, tbody], style={"width": "100%", "borderCollapse": "collapse", "fontSize": 12})],
+        children=[html.Div(className="table-shell", children=[html.Table([thead, tbody], className="data-table")])],
         p="md",
         radius="lg",
         withBorder=True,
-        style={"overflowX": "auto"},
+        className="data-table-panel",
     )

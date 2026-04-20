@@ -86,25 +86,30 @@ def make_line_chart(
 
     layout_updates: dict[str, Any] = {
         "template": plotly_template(),
-        "title": {"text": title, "x": 0.03, "xanchor": "left", "font": {"color": "#e6f1ff", "size": 14}} if title else None,
+        "title": {"text": title, "x": 0.02, "xanchor": "left", "font": {"color": "#f3f7fb", "size": 14}} if title else None,
         "margin": {"l": 50, "r": 50 if secondary_y else 10, "t": 42 if title else 8, "b": 20},
         "height": 180 if compact else 280,
         "showlegend": not compact and len(y_columns) > 1,
+        "hovermode": "x unified",
     }
     if secondary_y:
         layout_updates["yaxis2"] = {
             "overlaying": "y",
             "side": "right",
             "showgrid": False,
-            "tickfont": {"color": "#7f96ad"},
+            "tickfont": {"color": "#7f90a3"},
         }
     fig.update_layout(**layout_updates)
-    fig.update_xaxes(showgrid=False, zeroline=False, color="#7f96ad", title=x_axis_title or "")
-    fig.update_yaxes(showgrid=True, zeroline=True, color="#7f96ad", title=y_axis_title or "")
+    fig.update_xaxes(showgrid=False, zeroline=False, color="#7f90a3", title=x_axis_title or "")
+    fig.update_yaxes(showgrid=True, zeroline=False, color="#7f90a3", title=y_axis_title or "")
     if range_selector:
         fig.update_xaxes(
             rangeslider_visible=False,
             rangeselector={
+                "bgcolor": "rgba(255,255,255,0.02)",
+                "bordercolor": "rgba(140,164,191,0.16)",
+                "font": {"color": "#a8b6c5", "size": 10},
+                "activecolor": "rgba(69,183,217,0.16)",
                 "buttons": [
                     {"count": 1, "label": "1M", "step": "month", "stepmode": "backward"},
                     {"count": 3, "label": "3M", "step": "month", "stepmode": "backward"},
@@ -142,12 +147,12 @@ def make_bar_chart(
     )
     fig.update_layout(
         template=plotly_template(),
-        title={"text": title, "x": 0.03, "xanchor": "left", "font": {"color": "#e6f1ff", "size": 14}},
+        title={"text": title, "x": 0.02, "xanchor": "left", "font": {"color": "#f3f7fb", "size": 14}},
         margin={"l": 50, "r": 10, "t": 42, "b": 20},
         height=260,
     )
-    fig.update_xaxes(showgrid=False, color="#7f96ad")
-    fig.update_yaxes(showgrid=True, gridcolor="rgba(140,163,186,0.14)", color="#7f96ad", title=y_axis_title or "")
+    fig.update_xaxes(showgrid=False, color="#7f90a3")
+    fig.update_yaxes(showgrid=True, gridcolor="rgba(140,164,191,0.10)", color="#7f90a3", title=y_axis_title or "")
     return dcc.Graph(figure=fig, config={"displayModeBar": False}, className="chart")
 
 
@@ -167,7 +172,7 @@ def yield_curve_bar(labels: list[str], values: list[float | None], title: str) -
     )
     fig.update_layout(
         template=plotly_template(),
-        title={"text": title, "x": 0.03, "xanchor": "left", "font": {"color": "#e6f1ff", "size": 14}},
+        title={"text": title, "x": 0.02, "xanchor": "left", "font": {"color": "#f3f7fb", "size": 14}},
         margin={"l": 50, "r": 10, "t": 42, "b": 20},
         height=220,
     )
@@ -197,7 +202,7 @@ def make_pie_chart(labels: list[str], values: list[float], title: str) -> dcc.Gr
     )
     fig.update_layout(
         template=plotly_template(),
-        title={"text": title, "x": 0.03, "xanchor": "left", "font": {"color": "#e6f1ff", "size": 14}},
+        title={"text": title, "x": 0.02, "xanchor": "left", "font": {"color": "#f3f7fb", "size": 14}},
         margin={"l": 10, "r": 10, "t": 44, "b": 10},
         height=300,
         showlegend=False,
@@ -313,7 +318,7 @@ def price_with_mas(
         )
     fig.update_layout(
         template=plotly_template(),
-        title={"text": f"{symbol} Price", "x": 0.03, "xanchor": "left", "font": {"color": "#e6f1ff", "size": 14}},
+        title={"text": f"{symbol} Price", "x": 0.02, "xanchor": "left", "font": {"color": "#f3f7fb", "size": 14}},
         margin={"l": 50, "r": 60 if volume_column else 10, "t": 42, "b": 20},
         height=360,
         legend={"orientation": "h", "yanchor": "bottom", "y": 1.02},
