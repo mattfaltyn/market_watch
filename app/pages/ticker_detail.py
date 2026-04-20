@@ -5,7 +5,7 @@ import dash_mantine_components as dmc
 from dash import dcc, html
 
 from app.components.charts import make_line_chart, price_with_mas
-from app.components.ui import alert_list, app_shell, badge, error_box, section_panel
+from app.components.ui import app_shell, badge, error_box, section_panel
 from app.config import AppConfig
 from app.models import TickerDetailBundle
 
@@ -70,7 +70,7 @@ def render_ticker_detail(bundle: TickerDetailBundle, config: AppConfig):
     )
 
     quality_panel = html.Div(
-        className="section-metric-grid",
+        className="mini-stat-grid section-metric-grid",
         children=[
             _mini_stat("ROE", roe),
             _mini_stat("ROIC", roic),
@@ -133,7 +133,7 @@ def render_ticker_detail(bundle: TickerDetailBundle, config: AppConfig):
         [
             error_box(bundle.errors),
             html.Div(
-                className="ticker-header",
+                className="detail-header ticker-header",
                 children=[
                     section_panel(
                         "Ticker Header",
@@ -160,6 +160,7 @@ def render_ticker_detail(bundle: TickerDetailBundle, config: AppConfig):
                         subtitle="Company context",
                         header_right=badge(bundle.symbol, "market"),
                         variant="shell",
+                        density="compact",
                     ),
                     section_panel(
                         "Alert Panel",
@@ -167,18 +168,19 @@ def render_ticker_detail(bundle: TickerDetailBundle, config: AppConfig):
                         subtitle="Threshold-driven warnings and review cues",
                         header_right=badge(f"{len(bundle.alerts)} active", alert_tone),
                         variant="inset",
+                        density="compact",
                     ),
                 ],
             ),
             html.Div(
-                className="three-col",
+                className="chart-band three-col",
                 children=[
-                    section_panel("Price", [price_chart], subtitle="Close with moving averages from settings"),
-                    section_panel("Valuation", [pe_chart], subtitle="TTM P/E vs industry median line when available"),
-                    section_panel("Quality / Growth", [quality_panel], subtitle="Latest fundamentals"),
+                    section_panel("Price", [price_chart], subtitle="Close with moving averages from settings", density="compact"),
+                    section_panel("Valuation", [pe_chart], subtitle="TTM P/E vs industry median line when available", density="compact"),
+                    section_panel("Quality / Growth", [quality_panel], subtitle="Latest fundamentals", density="compact"),
                 ],
             ),
-            section_panel("News", [news_block], subtitle="Recent headlines", header_right=badge("Recent", "market")),
+            section_panel("News", [news_block], subtitle="Recent headlines", header_right=badge("Recent", "market"), density="compact"),
         ],
         page_title=f"{bundle.symbol} regime intelligence panel.",
         active_page="ticker",

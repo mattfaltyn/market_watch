@@ -77,9 +77,10 @@ def test_regime_overview_renders():
     layout = render_regime_overview(_regime_snapshot(), [], cfg)
     assert layout is not None
     body = layout.children[1].children[0]
-    assert body.children[0].className == "overview-hero"
-    assert body.children[1].className == "kpi-strip"
-    assert body.children[2].className == "hero-grid"
+    assert body.className == "page-body page-stack"
+    assert "overview-hero" in body.children[0].className
+    assert "kpi-rail" in body.children[1].className
+    assert "section-row-primary" in body.children[2].className
 
 
 def test_regime_overview_renders_with_empty_regime_history():
@@ -107,6 +108,8 @@ def test_markets_page_renders():
     sp = pd.DataFrame({"report_date": pd.to_datetime(["2020-01-01", "2021-01-01"]), "annual_returns": [0.1, 0.12]})
     layout = render_markets(market, rates, sp, [], cfg)
     assert layout is not None
+    body = layout.children[1].children[0]
+    assert "page-body" in body.className
 
 
 def test_markets_page_no_indices_no_curve():
@@ -136,6 +139,8 @@ def test_ticker_detail_renders():
     )
     layout = render_ticker_detail(bundle, cfg)
     assert layout is not None
+    body = layout.children[1].children[0]
+    assert "detail-header" in body.children[1].className
 
 
 def test_ticker_detail_empty_price_and_volume():

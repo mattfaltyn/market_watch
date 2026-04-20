@@ -66,7 +66,7 @@ def _mover_chips(snapshot: RegimeOverviewSnapshot) -> list:
         notable.append((symbol, label, change))
     notable = sorted(notable, key=lambda item: abs(item[2]), reverse=True)[:6]
     return [
-        dmc.Badge(f"{symbol} {label} {change:+.1%}", color="cyan" if change >= 0 else "red", variant="light", size="sm")
+        badge(f"{symbol} {label} {change:+.1%}", "market" if change >= 0 else "negative")
         for symbol, label, change in notable
     ]
 
@@ -123,10 +123,10 @@ def render_regime_overview(snapshot: RegimeOverviewSnapshot, errors: list[str], 
 
     strength_pct = min(100.0, max(0.0, regime.regime_strength * 100.0))
     hero = html.Div(
-        className="overview-hero",
+        className="summary-hero overview-hero",
         children=[
             html.Div(
-                className="hero-main",
+                className="hero-split hero-main",
                 children=[
                     html.Div(
                         className="hero-summary",
@@ -245,7 +245,7 @@ def render_regime_overview(snapshot: RegimeOverviewSnapshot, errors: list[str], 
                         dmc.Stack(
                             [
                                 html.Div(
-                                    className="two-col",
+                                    className="section-row section-row-support",
                                     children=[
                                         section_panel(
                                             "Regime History",
@@ -263,6 +263,7 @@ def render_regime_overview(snapshot: RegimeOverviewSnapshot, errors: list[str], 
                                                 )
                                             ],
                                             subtitle="Historical score replay",
+                                            density="compact",
                                         ),
                                         section_panel(
                                             "Regime Strength",
@@ -280,6 +281,7 @@ def render_regime_overview(snapshot: RegimeOverviewSnapshot, errors: list[str], 
                                                 )
                                             ],
                                             subtitle="Mean |growth| and |inflation|; dashed line = weak threshold",
+                                            density="compact",
                                         ),
                                     ],
                                 ),
@@ -295,10 +297,10 @@ def render_regime_overview(snapshot: RegimeOverviewSnapshot, errors: list[str], 
                     dmc.AccordionControl("Driver decomposition"),
                     dmc.AccordionPanel(
                         html.Div(
-                            className="two-col",
+                            className="section-row section-row-support",
                             children=[
-                                section_panel("Growth Drivers", [growth_heat], subtitle="Regime inputs"),
-                                section_panel("Inflation Drivers", [inflation_heat], subtitle="Regime inputs"),
+                                section_panel("Growth Drivers", [growth_heat], subtitle="Regime inputs", density="compact"),
+                                section_panel("Inflation Drivers", [inflation_heat], subtitle="Regime inputs", density="compact"),
                             ],
                         )
                     ),
@@ -310,13 +312,15 @@ def render_regime_overview(snapshot: RegimeOverviewSnapshot, errors: list[str], 
                     dmc.AccordionControl("Raw tables"),
                     dmc.AccordionPanel(
                         html.Div(
-                            className="two-col",
+                            className="section-row section-row-support",
                             children=[
-                                section_panel("Regime Components", [make_table(proxy_rows, numeric_columns=["Score"])], subtitle="Proxy scores"),
+                                section_panel("Regime Components", [make_table(proxy_rows, numeric_columns=["Score"])], subtitle="Proxy scores", density="compact", variant="table"),
                                 section_panel(
                                     "Confirmation Table",
                                     [make_table(confirmation_rows, numeric_columns=["Score", "Trend", "Momentum", "Volatility"])],
                                     subtitle="VAMS diagnostics",
+                                    density="compact",
+                                    variant="table",
                                 ),
                             ],
                         )
@@ -330,9 +334,9 @@ def render_regime_overview(snapshot: RegimeOverviewSnapshot, errors: list[str], 
     return app_shell(
         [
             hero,
-            html.Div(className="kpi-strip", children=[metric_card(card) for card in kpis]),
+            html.Div(className="kpi-rail kpi-strip", children=[metric_card(card) for card in kpis]),
             html.Div(
-                className="hero-grid",
+                className="section-row section-row-primary hero-grid",
                 children=[
                     section_panel(
                         "Regime Quadrant",
@@ -349,32 +353,36 @@ def render_regime_overview(snapshot: RegimeOverviewSnapshot, errors: list[str], 
                         ],
                         subtitle="Current macro environment",
                         header_right=badge(regime.regime.title(), "market"),
+                        density="compact",
                     ),
                     section_panel(
                         "What Changed",
                         [
                             transition_strip(snapshot.transitions),
-                            dmc.Group(_mover_chips(snapshot), gap="xs", mt="sm"),
+                            html.Div(className="mover-chip-row", children=_mover_chips(snapshot)),
                         ],
                         subtitle="Regime / confirmation transitions and top absolute 1D or 5D moves",
                         header_right=badge(f"{len(snapshot.transitions)} events", "warning" if snapshot.transitions else "neutral"),
+                        density="compact",
                     ),
                 ],
             ),
             html.Div(
-                className="two-col",
+                className="section-row section-row-support",
                 children=[
                     section_panel(
                         "Indicator Tape",
-                        [html.Div(className="benchmark-grid", children=benchmark_tiles)],
+                        [html.Div(className="dense-card-grid benchmark-grid", children=benchmark_tiles or [html.Div("No indicator tape available.", className="empty-state")])],
                         subtitle="Key KISS market indicators",
                         header_right=badge(f"{len(benchmark_tiles)} tracked", "market"),
+                        density="compact",
                     ),
                     section_panel(
                         "Confirmation",
-                        [html.Div(className="signal-grid", children=confirmation_cards or [html.Div("No confirmation assets available.", className="empty-state")])],
+                        [html.Div(className="dense-card-grid signal-grid", children=confirmation_cards or [html.Div("No confirmation assets available.", className="empty-state")])],
                         subtitle="VAMS used as confirmation, not sizing",
                         header_right=badge(f"{len(snapshot.confirmations)} sleeves", "positive" if snapshot.confirmations else "neutral"),
+                        density="compact",
                     ),
                 ],
             ),

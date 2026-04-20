@@ -17,6 +17,8 @@ Unknown paths fall through to the **regime overview** (same as `/`) in the curre
 
 Shared chrome and nav are built with **dash-mantine-components** and helpers in [`app/components/layout.py`](../app/components/layout.py) / [`app/components/ui.py`](../app/components/ui.py) (`app_shell`, active page ids: `overview`, `markets`, `watchlist`, `ticker`).
 
+The shell is a compact static header rather than a sticky overlay. Page spacing is coordinated through shared semantic layout regions in the UI layer (`page-stack`, section rows, KPI rail, dense card grids, chart bands) so routes do not each invent their own top-of-page and section gap rules.
+
 ## Errors
 
 - Unsupported ticker: `fatal_error_page` with guidance.

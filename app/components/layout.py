@@ -76,7 +76,7 @@ def app_shell(
             ),
             nav_row,
         ],
-        gap="sm",
+        gap="xs",
         className="shell-stack",
     )
     top_alerts = [dmc.Alert(color="yellow", title="Notice", children=w, mb="sm") for w in (warnings or [])]
@@ -89,8 +89,8 @@ def app_shell(
     return html.Div(
         className="app-shell",
         children=[
-            dmc.Paper(children=[frame], p="lg", radius="xl", withBorder=True, className="app-frame"),
-            html.Div(className="page-body-wrap", children=[html.Div(className="page-body", children=body_list)]),
+            dmc.Paper(children=[frame], p="md", radius="xl", withBorder=True, className="app-frame"),
+            html.Div(className="page-body-wrap", children=[html.Div(className="page-body page-stack", children=body_list)]),
         ],
     )
 

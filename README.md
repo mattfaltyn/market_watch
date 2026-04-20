@@ -28,11 +28,12 @@ This app is no longer a portfolio-implementation dashboard. It is a regime-and-i
 The current UI is intentionally visual-first and dark by default:
 
 - the home page is a regime state board
-- the shell uses a compact dark terminal layout with live status and page navigation
+- the shell uses a compact static dark terminal layout with live status and page navigation
 - regime is shown as a growth / inflation quadrant
 - confirmation assets are shown through cards, gauges, chips, and transition rails
 - market indicators are shown as a tape and heat strips
 - watchlist and audit surfaces use dark custom tables instead of a bright spreadsheet-like treatment
+- shared spacing is driven by semantic layout regions instead of route-specific one-off gaps
 - text is secondary to charts, bars, and signal encoding
 
 The core confirmation assets are:

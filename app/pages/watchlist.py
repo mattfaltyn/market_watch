@@ -61,7 +61,7 @@ def render_watchlist(snapshot: pd.DataFrame, errors: list[str], config: AppConfi
     table_body = display[table_cols] if not display.empty and all(c in display.columns for c in table_cols) else display
 
     body = [
-        html.Div(className="kpi-strip", children=[metric_card(card) for card in cards]),
+        html.Div(className="kpi-rail kpi-strip", children=[metric_card(card) for card in cards]),
         section_panel(
             "Watchlist Snapshot",
             [
@@ -82,6 +82,8 @@ def render_watchlist(snapshot: pd.DataFrame, errors: list[str], config: AppConfi
             ],
             subtitle="Primary watchlist table with returns, catalysts, valuation, and alert context",
             header_right=badge("Sortable", "positive"),
+            density="compact",
+            variant="table",
         ),
     ]
 

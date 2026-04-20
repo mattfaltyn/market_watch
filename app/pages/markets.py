@@ -27,16 +27,42 @@ def render_markets(market: MarketSnapshot, rates: RatesSnapshot, sp500_history: 
     ma_pills = []
     for index in market.indices[:4]:
         ma_pills.append(
-            dmc.Group(
-                [
+            html.Div(
+                className="ma-pill-group",
+                children=[
                     dmc.Text(index.symbol, size="xs", fw=700),
                     dmc.Badge(f"20D {index.ma20_state}", size="xs", variant="light"),
                     dmc.Badge(f"50D {index.ma50_state}", size="xs", variant="light"),
                     dmc.Badge(f"200D {index.ma200_state}", size="xs", variant="light"),
                 ],
-                gap="xs",
             )
         )
+
+    participation = html.Div(
+        className="page-cluster",
+        children=[
+            dmc.Group(
+                [
+                    dmc.RingProgress(
+                        sections=[{"value": market.positive_participation_ratio * 100, "color": "cyan"}],
+                        size=88,
+                        thickness=14,
+                        label=dmc.Text(f"{market.positive_participation_ratio:.0%}", size="md", fw=700),
+                    ),
+                    dmc.Stack(
+                        [
+                            dmc.Text("Participation", fw=600),
+                            dmc.Text("Share of tracked names with positive 1M return", size="xs", c="dimmed"),
+                            dmc.Text("50% reference: balanced breadth", size="xs", c="dimmed"),
+                        ],
+                        gap=4,
+                    ),
+                ],
+                align="center",
+                gap="sm",
+            )
+        ],
+    )
 
     curve_labels = []
     curve_vals = []
@@ -44,27 +70,6 @@ def render_markets(market: MarketSnapshot, rates: RatesSnapshot, sp500_history: 
         if val is not None:
             curve_labels.append(label)
             curve_vals.append(val)
-
-    participation = dmc.Group(
-        [
-            dmc.RingProgress(
-                sections=[{"value": market.positive_participation_ratio * 100, "color": "cyan"}],
-                size=100,
-                thickness=16,
-                label=dmc.Text(f"{market.positive_participation_ratio:.0%}", size="lg", fw=700),
-            ),
-            dmc.Stack(
-                [
-                    dmc.Text("Participation", fw=600),
-                    dmc.Text("Share of tracked names with positive 1M return", size="xs", c="dimmed"),
-                    dmc.Text("50% reference: balanced breadth", size="xs", c="dimmed"),
-                ],
-                gap=4,
-            ),
-        ],
-        align="center",
-        gap="md",
-    )
 
     indicator_labels = [index.symbol for index in market.indices]
     indicator_values = [index.return_1d or 0.0 for index in market.indices]
@@ -106,29 +111,32 @@ def render_markets(market: MarketSnapshot, rates: RatesSnapshot, sp500_history: 
 
     children: list = []
     if ma_pills:
-        children.append(dmc.Stack(ma_pills, gap="xs"))
+        children.append(html.Div(className="ma-pill-row", children=ma_pills))
     children.extend(
         [
             section_panel(
                 "Benchmark Tape",
-                [html.Div(className="benchmark-grid", children=benchmark_cards or [html.Div("No benchmark symbols configured.", className="empty-state")])],
+                [html.Div(className="dense-card-grid benchmark-grid", children=benchmark_cards or [html.Div("No benchmark symbols configured.", className="empty-state")])],
                 subtitle="Configured market-watch symbols",
                 header_right=badge(f"{len(market.indices)} symbols", "market"),
+                density="compact",
             ),
             html.Div(
-                className="two-col",
+                className="section-row section-row-support",
                 children=[
                     section_panel(
                         "Rates",
                         [rate_level_row, dmc.Text("Yield changes (10Y)", size="xs", c="dimmed", mt="sm"), delta_row],
                         subtitle="Levels vs changes",
                         header_right=badge("Treasuries", "rates"),
+                        density="compact",
                     ),
                     section_panel(
                         "Breadth",
                         [heatstrip(indicator_values, indicator_labels, value_format="percent"), participation],
                         subtitle="1D moves and participation",
                         header_right=badge(f"{market.positive_participation_ratio:.0%} positive", "positive" if market.positive_participation_ratio >= 0.5 else "warning"),
+                        density="compact",
                     ),
                 ],
             ),
@@ -142,6 +150,7 @@ def render_markets(market: MarketSnapshot, rates: RatesSnapshot, sp500_history: 
                 [yield_curve_bar(curve_labels, curve_vals, "Treasury proxies")],
                 subtitle="Yahoo Finance proxies; short end uses ^FVX",
                 header_right=badge("Snapshot", "rates"),
+                density="compact",
             )
         )
     lower_panels.append(
@@ -150,9 +159,10 @@ def render_markets(market: MarketSnapshot, rates: RatesSnapshot, sp500_history: 
             [sp500_chart],
             subtitle="Annual return series for broader market framing",
             header_right=badge("Context", "market"),
+            density="compact",
         )
     )
-    children.append(html.Div(className="two-col", children=lower_panels) if len(lower_panels) > 1 else lower_panels[0])
+    children.append(html.Div(className="section-row section-row-support", children=lower_panels) if len(lower_panels) > 1 else lower_panels[0])
 
     return app_shell(
         children,

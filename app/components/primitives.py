@@ -63,6 +63,8 @@ def section_panel(
     *,
     header_right=None,
     variant: str = "default",
+    density: str = "standard",
+    body_class: str = "",
 ) -> dmc.Paper:
     heading = html.Div(
         className="section-heading",
@@ -72,11 +74,11 @@ def section_panel(
         ],
     )
     header = html.Div(className="section-head", children=[heading, header_right] if header_right else [heading])
-    body = html.Div(className="section-body", children=children)
+    body = html.Div(className=f"section-body {body_class}".strip(), children=children)
     return dmc.Paper(
         children=[header, body],
-        className=f"section panel variant-{variant} {extra_class}".strip(),
-        p="md",
+        className=f"section panel variant-{variant} density-{density} {extra_class}".strip(),
+        p="md" if density == "standard" else "sm",
         withBorder=True,
         radius="lg",
     )
@@ -117,6 +119,7 @@ def metric_card(card: MetricCard) -> dmc.Paper:
     if card.sparkline:
         sparkline = sparkline_chart(card.sparkline, semantic=card.tone)
     tone = _tone_class(card.tone)
+    density = "compact" if card.variant == "compact" else "standard"
     kids = [
         html.Div(
             className="metric-card-shell",
@@ -136,10 +139,10 @@ def metric_card(card: MetricCard) -> dmc.Paper:
     ]
     return dmc.Paper(
         children=kids,
-        p="md",
+        p="sm" if density == "compact" else "md",
         radius="lg",
         withBorder=True,
-        className=f"metric-card metric-{card.variant} emphasis-{card.emphasis} tone-{tone}",
+        className=f"metric-card metric-{card.variant} density-{density} emphasis-{card.emphasis} tone-{tone}",
     )
 
 
@@ -164,7 +167,7 @@ def benchmark_card(symbol: str, price: str, delta: str, tone: str, source_note: 
     ]
     if source_note:
         children.append(html.Div(source_note, className="benchmark-note"))
-    return dmc.Paper(children=children, p="sm", radius="lg", withBorder=True, className=f"benchmark-tile tone-{_tone_class(tone)}")
+    return dmc.Paper(children=children, p="sm", radius="lg", withBorder=True, className=f"benchmark-tile density-compact tone-{_tone_class(tone)}")
 
 
 def error_box(errors: list[str]) -> html.Div | None:

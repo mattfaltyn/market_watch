@@ -108,6 +108,7 @@ def test_app_shell_accepts_non_list_children():
     layout = app_shell(html.Div("solo"), page_title="t", active_page="overview", status_meta={"as_of": None})
     assert layout is not None
     assert layout.children[0].className == "app-frame"
+    assert layout.children[1].children[0].className == "page-body page-stack"
 
 
 def test_line_chart_secondary_y_and_reference_lines():
