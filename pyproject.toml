@@ -5,13 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "market-watch-dashboard"
 version = "0.1.0"
-description = "Local-first KISS regime and market-indicators dashboard built with Dash and yfinance"
+description = "Local-first Bitcoin (BTC-USD) market dashboard built with Dash and yfinance"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
   "dash>=2.18.2",
   "dash-mantine-components>=0.14.0",
-  "dash-iconify>=0.1.0",
   "pandas>=2.2.3",
   "plotly>=5.24.1",
   "PyYAML>=6.0.2",
@@ -31,8 +30,6 @@ packages = [
   "app",
   "app.components",
   "app.data",
-  "app.pages",
-  "app.services",
 ]
 
 [tool.pytest.ini_options]

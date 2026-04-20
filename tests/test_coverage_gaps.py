@@ -1,297 +1,524 @@
-"""Targeted tests for remaining branch/line coverage gaps."""
-
 from __future__ import annotations
 
+import builtins
+from datetime import datetime
+from pathlib import Path
 from unittest import mock
 
+import numpy as np
 import pandas as pd
+import pytest
 
-from app.components import ui
-from app.config import load_config
-from app.models import (
-    ConfirmationSnapshot,
-    DataResult,
-    IndicatorSnapshot,
-    KissRegime,
-    MarketIndexSnapshot,
-    MarketSnapshot,
-    RatesSnapshot,
-    RegimeOverviewSnapshot,
-    TickerDetailBundle,
-    VamsHistoryPoint,
+from app.dashboard import build_page_content, build_price_figure, fmt_vol
+from app.data.bitcoin_client import BitcoinDataClient, history_to_records
+from app.data.cache import FileCache
+from app.metrics import (
+    _anchor_close,
+    _first_close_of_year,
+    add_moving_averages,
+    build_chart_series,
+    change_1d,
+    compute_price_stats,
+    ma_chip_text,
+    slice_chart_history,
 )
-from app.pages.overview import render_regime_overview
-from app.pages.ticker_detail import render_ticker_detail
-from app.services import regime_history as rh
-from app.services import vams
-from app.services.signals import compute_regime
-from app.services.watchlist_snapshot import build_watchlist_snapshot
+from app.models import BitcoinSnapshot, ChartSeries, PriceStats
 
 
-def test_ui_make_line_skips_missing_y_column():
-    df = pd.DataFrame({"report_date": [pd.Timestamp("2024-01-01")], "y": [1.0]})
-    assert ui.make_line_chart(df, "report_date", ["y", "ghost"], "t") is not None
+def test_fmt_vol_billions():
+    assert "B" in fmt_vol(3e9)
 
 
-def test_ui_format_numeric_variants_in_table():
+def test_yfinance_import_error(monkeypatch: pytest.MonkeyPatch):
+    import sys
+
+    sys.modules.pop("yfinance", None)
+    real_import = builtins.__import__
+
+    def fake_import(name, globals=None, locals=None, fromlist=(), level=0, **kw):
+        if name == "yfinance":
+            raise ImportError("blocked")
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    from app.data.bitcoin_client import _import_yfinance
+
+    assert _import_yfinance() is None
+
+
+def test_get_price_history_single_row(tmp_path: Path):
+    idx = pd.date_range("2024-01-01", periods=1, freq="D", tz="UTC")
+    raw = pd.DataFrame(
+        {"Open": [1], "High": [2], "Low": [0], "Close": [1.5], "Volume": [10]},
+        index=idx,
+    )
+
+    class _T:
+        def history(self, period, auto_adjust):
+            return raw
+
+    class _YF:
+        def Ticker(self, symbol):
+            return _T()
+
+    cache = FileCache(tmp_path / "cg", default_ttl_seconds=3600)
+    client = BitcoinDataClient(cache, "BTC-USD", 900, (20, 50, 200))
+    with mock.patch("app.data.bitcoin_client._import_yfinance", return_value=_YF()):
+        res = client.get_price_history(force_refresh=True)
+        assert "Insufficient" in res.errors[0]
+
+
+def test_history_to_records_empty():
+    assert history_to_records(pd.DataFrame()) == []
+
+
+def test_cache_ttl_miss(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    import app.data.cache as cache_mod
+
+    clock = {"t": 0.0}
+
+    def fake_time() -> float:
+        return clock["t"]
+
+    monkeypatch.setattr(cache_mod.time, "time", fake_time)
+    cache = FileCache(tmp_path / "ttl", default_ttl_seconds=1)
+    clock["t"] = 0.0
+    cache.set("k", 99)
+    clock["t"] = 50_000.0
+    assert cache.get("k", ttl_seconds=1) is None
+
+
+def test_slice_chart_sl_empty_fallback():
     df = pd.DataFrame(
         {
-            "s": ["txt"],
-            "big": [5000.0],
-            "ret": [0.04],
-            "days_to_x": [3.0],
-            "plain_num": [1500.0],
-            "obj_str": pd.Series(["strcell"], dtype=object),
-            "ts": [pd.Timestamp("2024-03-01")],
-            "none_cell": [None],
-            "odd": [object()],
+            "report_date": pd.to_datetime(["2024-06-01"]),
+            "close": [10.0],
+            "high": [11.0],
+            "low": [9.0],
         }
     )
-    assert ui.make_table(df) is not None
+    out = slice_chart_history(df, "7D")  # type: ignore[arg-type]
+    assert len(out) == 1
 
 
-def test_ui_format_numeric_private():
-    assert ui._format_numeric(None, "c") == "—"
-    assert ui._format_numeric(float("nan"), "c") == "—"
-    assert "2024" in str(ui._format_numeric(pd.Timestamp("2024-06-01"), "c"))
-    assert ui._format_numeric(object(), "c") is not None
+def test_latest_ts_no_column():
+    df = pd.DataFrame({"x": [1]})
+    assert slice_chart_history(df, "ALL").empty  # type: ignore[arg-type]
 
 
-def test_overview_benchmark_price_branches():
-    regime = KissRegime("goldilocks", 0.5, None, "up", "down", {}, None, [])
-    inds = [
-        IndicatorSnapshot("SPY", None, None, None, None, "x", None, None),
-        IndicatorSnapshot("QQQ", 100.0, 0.01, 0.02, 0.03, "x", None, None),
-        IndicatorSnapshot("IWM", 50.0, 0.01, None, None, "x", None, None),
-        IndicatorSnapshot("XLF", 30.0, None, 0.02, None, "x", None, None),
-    ]
-    snap = RegimeOverviewSnapshot(
-        regime=regime,
-        regime_history=[],
-        indicators=inds,
-        confirmations=[
-            ConfirmationSnapshot("SPY", "E", "bullish", 0.5, 0.1, 0.1, 0.1, None, None),
-        ],
-        transitions=[],
-        as_of=None,
-        summary_text="s",
+def test_add_ma_no_close():
+    df = pd.DataFrame({"report_date": [pd.Timestamp("2024-01-01")]})
+    assert "ma20" not in add_moving_averages(df, (20,))
+
+
+def test_ma_chip_partial_none():
+    df = pd.DataFrame(
+        {
+            "report_date": pd.date_range("2024-01-01", periods=30, freq="D"),
+            "close": range(30),
+        }
     )
-    assert render_regime_overview(snap, [], load_config()) is not None
+    text = ma_chip_text(df, (20,))
+    assert isinstance(text, str)
 
 
-def test_ticker_detail_eps_format_branch():
-    bundle = TickerDetailBundle(
-        symbol="SPY",
-        info=pd.DataFrame(),
-        price=pd.DataFrame(
-            {"report_date": [pd.Timestamp("2024-01-01")], "close": [100.0]}
+def test_compute_price_stats_nan_close_last():
+    df = pd.DataFrame(
+        {
+            "report_date": pd.date_range("2024-01-01", periods=5, freq="D"),
+            "open": [1, 2, 3, 4, 5],
+            "high": [2, 3, 4, 5, 6],
+            "low": [0, 1, 2, 3, 4],
+            "close": [1.5, 2.5, 3.5, 4.5, float("nan")],
+            "volume": [1] * 5,
+        }
+    )
+    st = compute_price_stats(df, (20,))
+    assert st.ret_7d is None
+
+
+def test_build_price_figure_with_mas(tmp_path: Path):
+    idx = pd.date_range("2023-01-01", periods=120, freq="D", tz="UTC")
+    raw = pd.DataFrame(
+        {
+            "Open": range(120),
+            "High": [x + 1 for x in range(120)],
+            "Low": range(120),
+            "Close": [float(x) + 0.5 for x in range(120)],
+            "Volume": [1e6] * 120,
+        },
+        index=idx,
+    )
+
+    class _T:
+        def history(self, period, auto_adjust):
+            return raw
+
+    class _YF:
+        def Ticker(self, symbol):
+            return _T()
+
+    cache = FileCache(tmp_path / "fig", default_ttl_seconds=3600)
+    client = BitcoinDataClient(cache, "BTC-USD", 900, (20, 50, 200))
+    with mock.patch("app.data.bitcoin_client._import_yfinance", return_value=_YF()):
+        res = client.get_price_history()
+        snap = client.build_snapshot(res.data, "90D")
+        fig = build_price_figure(snap)
+        assert fig.data
+
+
+def test_build_page_hero_lines_and_range_note(tmp_path: Path):
+    idx = pd.date_range("2023-01-01", periods=400, freq="D", tz="UTC")
+    close = [100.0] * 398 + [100.0, 100.0]
+    raw = pd.DataFrame(
+        {
+            "Open": close,
+            "High": [c * 1.01 for c in close],
+            "Low": [c * 0.99 for c in close],
+            "Close": close,
+            "Volume": [1e6] * 400,
+        },
+        index=idx,
+    )
+
+    class _T:
+        def history(self, period, auto_adjust):
+            return raw
+
+    class _YF:
+        def Ticker(self, symbol):
+            return _T()
+
+    cache = FileCache(tmp_path / "hero", default_ttl_seconds=3600)
+    client = BitcoinDataClient(cache, "BTC-USD", 900, (20, 50, 200))
+    with mock.patch("app.data.bitcoin_client._import_yfinance", return_value=_YF()):
+        res = client.get_price_history()
+        snap = client.build_snapshot(res.data, "1D")
+        body = build_page_content(snap)
+        assert body is not None
+        snap2 = client.build_snapshot(res.data, "90D")
+        assert build_page_content(snap2) is not None
+
+
+def test_volume_sparkline_empty_volume():
+    snap = BitcoinSnapshot(
+        symbol="BTC-USD",
+        as_of=None,
+        latest_price=1.0,
+        change_1d_pct=None,
+        change_1d_abs=None,
+        ma_summary_chip="x",
+        stats=PriceStats(
+            ret_7d=None,
+            ret_30d=None,
+            ret_90d=None,
+            ret_ytd=None,
+            ret_1y=None,
+            ath_price=None,
+            dist_from_ath_pct=None,
+            vol_30d_ann=None,
+            ma20_state=None,
+            ma50_state=None,
+            ma200_state=None,
+            drawdown_from_peak_pct=None,
+            high_52w=None,
+            low_52w=None,
+            avg_volume_30d=None,
+            latest_volume=None,
         ),
-        valuation={"ttm_pe": pd.DataFrame()},
-        quality={
-            "roe": pd.DataFrame(
-                {"report_date": [pd.Timestamp("2024-01-01")], "roe": [float("nan")]}
-            )
-        },
-        growth={
-            "eps_yoy_growth": pd.DataFrame(
-                {"report_date": [pd.Timestamp("2024-01-01")], "eps_yoy_growth": [3.5]}
-            )
-        },
-        news=pd.DataFrame(),
-        calendar=pd.DataFrame(),
-        alerts=[],
-        errors=[],
-        role_label=None,
+        chart=ChartSeries(report_dates=[__import__("datetime").datetime(2024, 1, 1)], close=[1.0], ma20=[1.0], ma50=[1.0], volume=[]),
+        range_key="90D",
     )
-    assert render_ticker_detail(bundle, load_config()) is not None
+    assert build_page_content(snap) is not None
 
 
-def test_latest_transition_no_paired_dates():
-    assert rh._latest_transition("L", ["a"], [None]) is None
+def test_build_chart_series_without_ma50_window():
+    df = add_moving_averages(
+        pd.DataFrame(
+            {
+                "report_date": pd.date_range("2024-01-01", periods=40, freq="D"),
+                "close": range(40),
+            }
+        ),
+        (20,),
+    )
+    ch = build_chart_series(df, (20,))
+    assert len(ch.close) == 40
 
 
-def test_indicator_from_price_all_nan_close():
+def test_compute_ath_close_column_only():
     df = pd.DataFrame(
-        {"report_date": [pd.Timestamp("2024-01-01")], "close": [float("nan")]}
+        {
+            "report_date": pd.date_range("2024-01-01", periods=60, freq="D"),
+            "close": range(60),
+            "volume": [1] * 60,
+        }
     )
-    ind = rh._indicator_from_price("SPY", df)
-    assert ind.latest_value is None
+    st = compute_price_stats(df, (20, 50))
+    assert st.ath_price is not None
 
 
-def test_vams_score_frame_empty_after_dropna():
+def test_compute_latest_none():
+    df = pd.DataFrame({"close": [1.0, 2.0]})
+    st = compute_price_stats(df, (20,))
+    assert st.ret_7d is None
+
+
+def test_vol_branch_short_returns():
     df = pd.DataFrame(
-        {"report_date": [pd.Timestamp("2024-01-01")], "close": [float("nan")]}
-    )
-    out = vams._score_frame(
-        df,
         {
-            "vams_bullish_threshold": 0.3,
-            "vams_bearish_threshold": -0.3,
-            "volatility_high_threshold": 0.35,
-        },
+            "report_date": pd.date_range("2024-01-01", periods=20, freq="D"),
+            "close": range(20),
+            "high": range(20),
+            "low": range(20),
+            "volume": [1] * 20,
+        }
     )
-    assert out.empty
+    st = compute_price_stats(df, (20,))
+    assert st.vol_30d_ann is None
 
 
-def test_vams_score_frame_missing_close_column():
-    df = pd.DataFrame({"report_date": [pd.Timestamp("2024-01-01")], "open": [1.0]})
-    assert vams._score_frame(
-        df,
+def test_change_1d_zero_denominator():
+    df = pd.DataFrame({"close": [0.0, 1.0]})
+    assert change_1d(df) == (None, None)
+
+
+def test_ma_chip_missing_column_branch():
+    df = pd.DataFrame(
         {
-            "vams_bullish_threshold": 0.3,
-            "vams_bearish_threshold": -0.3,
-            "volatility_high_threshold": 0.35,
-        },
-    ).empty
-
-
-class WLClient:
-    def get_prices(self, symbol, force_refresh=False):
-        return DataResult(
-            pd.DataFrame({"report_date": [pd.Timestamp("2024-01-01")], "close": [1.0]})
-        )
-
-    def get_beta(self, symbol, benchmark, force_refresh=False):
-        return DataResult(
-            pd.DataFrame({"report_date": [pd.Timestamp("2024-01-01")], "beta": [1.0]})
-        )
-
-    def get_calendar(self, symbol, force_refresh=False):
-        return DataResult(pd.DataFrame({"wrong_col": [1]}))
-
-    def get_news(self, symbol, force_refresh=False):
-        return DataResult(pd.DataFrame())
-
-    def get_metric_frame(self, symbol, method_name, ttl=None, force_refresh=False):
-        return DataResult(pd.DataFrame())
-
-    def get_treasury_yields(self, force_refresh=False):
-        return DataResult(
-            pd.DataFrame(
-                {
-                    "report_date": [pd.Timestamp("2024-01-01")],
-                    "bc2_year": [0.04],
-                    "bc10_year": [0.05],
-                }
-            )
-        )
-
-
-def test_watchlist_calendar_edges():
-    class CalClient(WLClient):
-        def get_calendar(self, symbol, force_refresh=False):
-            return DataResult(
-                pd.DataFrame({"earning_date": [pd.Timestamp("2000-01-01")]})
-            )
-
-    build_watchlist_snapshot(
-        CalClient(),
-        ["SPY"],
-        "SPY",
-        {"large_move_1d": 0.01, "valuation_industry_gap": 0.2},
+            "report_date": pd.date_range("2024-01-01", periods=50, freq="D"),
+            "close": range(50),
+        }
     )
-
-    class NaNCalClient(WLClient):
-        def get_calendar(self, symbol, force_refresh=False):
-            return DataResult(pd.DataFrame({"earning_date": [float("nan")]}))
-
-    build_watchlist_snapshot(
-        NaNCalClient(),
-        ["SPY"],
-        "SPY",
-        {"large_move_1d": 0.01, "valuation_industry_gap": 0.2},
-    )
+    assert isinstance(ma_chip_text(df, (99,)), str)
 
 
-def test_get_vams_signal_empty_prices():
-    class NoPrice:
-        def get_prices(self, *a, **k):
-            return DataResult(pd.DataFrame())
-
-    out = vams.get_vams_signal(
-        NoPrice(),
-        "SPY",
+def test_price_figure_ma50_only_trace(tmp_path: Path):
+    idx = pd.date_range("2023-01-01", periods=120, freq="D", tz="UTC")
+    raw = pd.DataFrame(
         {
-            "vams_bullish_threshold": 0.3,
-            "vams_bearish_threshold": -0.3,
-            "volatility_high_threshold": 0.35,
+            "Open": range(120),
+            "High": [x + 1 for x in range(120)],
+            "Low": range(120),
+            "Close": [float(x) + 0.5 for x in range(120)],
+            "Volume": [1e6] * 120,
         },
+        index=idx,
     )
-    assert out.state == "neutral"
+
+    class _T:
+        def history(self, period, auto_adjust):
+            return raw
+
+    class _YF:
+        def Ticker(self, symbol):
+            return _T()
+
+    cache = FileCache(tmp_path / "ma50", default_ttl_seconds=3600)
+    client = BitcoinDataClient(cache, "BTC-USD", 900, (50, 200))
+    with mock.patch("app.data.bitcoin_client._import_yfinance", return_value=_YF()):
+        res = client.get_price_history()
+        snap = client.build_snapshot(res.data, "90D")
+        fig = build_price_figure(snap)
+        assert len(fig.data) >= 1
 
 
-def test_vams_fallback_all_zero_closes():
-    z = pd.Series([0.0] * 60)
-    vams._fallback_scores(z)
+def test_import_yfinance_returns_module():
+    from app.data import bitcoin_client as bc
+
+    assert bc._import_yfinance() is not None
 
 
-def test_compute_regime_skips_monthly_yield_when_none():
-    m = MarketSnapshot(indices=[], positive_participation_ratio=0.5, as_of=None)
-    r = RatesSnapshot(None, None, None, None, 0.02, 0.01, None)
-    compute_regime(m, r, pd.DataFrame())
-
-
-def test_compute_regime_middle_buckets_and_neutral_score():
-    def mi(m50="above", m200="above"):
-        return MarketIndexSnapshot(
-            "SPY", 1.0, 0.0, 0.0, 0.0, 0.0, "above", m50, m200, None
-        )
-
-    m = MarketSnapshot(
-        indices=[mi(), mi()], positive_participation_ratio=0.5, as_of=None
+def test_anchor_close_nan_value():
+    df = pd.DataFrame(
+        {
+            "report_date": [pd.Timestamp("2024-01-01"), pd.Timestamp("2024-01-09")],
+            "close": [float("nan"), 2.0],
+        }
     )
-    r = RatesSnapshot(None, None, None, None, 0.02, 0.0, 0.001)
-    wl = pd.DataFrame({"return_1m": [0.1] * 5 + [-0.1] * 5})
-    out = compute_regime(m, r, wl)
-    assert out.regime in {"Risk-On", "Risk-Off", "Neutral"}
+    assert _anchor_close(df, pd.Timestamp("2024-01-09"), 7) is None
 
 
-def test_compute_regime_exhaustive_branches():
-    def mi(m50="above", m200="above"):
-        return MarketIndexSnapshot(
-            "SPY", 1.0, 0.0, 0.0, 0.0, 0.0, "above", m50, m200, None
-        )
+def test_first_close_of_year_empty_window():
+    df = pd.DataFrame({"report_date": [pd.Timestamp("2023-06-01")], "close": [1.0]})
+    assert _first_close_of_year(df, pd.Timestamp("2024-06-15")) is None
 
-    m = MarketSnapshot(
-        indices=[
-            mi("above", "above"),
-            mi("above", "above"),
-            mi("below", "below"),
-            mi("below", "below"),
-        ],
-        positive_participation_ratio=0.8,
-        as_of=None,
+
+def test_vol_short_returns_path():
+    n = 40
+    close = np.concatenate([np.full(8, np.nan), np.linspace(1.0, 2.0, n - 8)])
+    df = pd.DataFrame(
+        {
+            "report_date": pd.date_range("2020-01-01", periods=n, freq="D"),
+            "close": close,
+            "high": close,
+            "low": close,
+            "volume": np.ones(n),
+        }
     )
-    r = RatesSnapshot(None, None, None, None, -0.01, -0.01, -0.01)
-    wl = pd.DataFrame({"return_1m": [0.05, 0.05, 0.05, 0.05, 0.05, 0.05]})
-    compute_regime(m, r, wl)
-
-    r2 = RatesSnapshot(None, None, None, None, 0.02, 0.01, 0.01)
-    compute_regime(m, r2, wl)
-
-    m2 = MarketSnapshot(indices=[mi()], positive_participation_ratio=0.1, as_of=None)
-    compute_regime(m2, r, pd.DataFrame())
+    st = compute_price_stats(df, (20,))
+    assert st.vol_30d_ann is None or isinstance(st.vol_30d_ann, float)
 
 
-def test_build_regime_overview_snapshot_none_transition_branch():
-    from app.config import load_config
-    from app.services import regime_history as rhmod
-    from app.services.regime_history import build_regime_overview_snapshot
-    from tests.routing_fake import RoutingFakeClient
+def test_drawdown_no_peak():
+    df = pd.DataFrame(
+        {
+            "report_date": pd.date_range("2024-01-01", periods=3, freq="D"),
+            "close": [0.0, 0.0, 0.0],
+            "high": [0.0, 0.0, 0.0],
+            "low": [0.0, 0.0, 0.0],
+            "volume": [1, 1, 1],
+        }
+    )
+    st = compute_price_stats(df, (20,))
+    assert st.drawdown_from_peak_pct is None
 
-    cfg = load_config()
 
-    with mock.patch.object(
-        rhmod,
-        "get_vams_signal_history",
-        return_value={"SPY": [], "AGG": [], "BTC-USD": []},
-    ):
-        build_regime_overview_snapshot(RoutingFakeClient(), cfg, force_refresh=False)
+def test_latest_volume_nan():
+    vols = [1.0] * 39 + [float("nan")]
+    df = pd.DataFrame(
+        {
+            "report_date": pd.date_range("2024-01-01", periods=40, freq="D"),
+            "close": range(40),
+            "high": range(40),
+            "low": range(40),
+            "volume": vols,
+        }
+    )
+    st = compute_price_stats(df, (20,))
+    assert st.latest_volume is None
 
-    hp = VamsHistoryPoint(pd.Timestamp("2024-01-01"), "bullish", 0.1, 0.1, 0.1, 0.1)
-    with mock.patch.object(
-        rhmod,
-        "get_vams_signal_history",
-        return_value={"SPY": [hp], "AGG": [hp], "BTC-USD": [hp]},
-    ):
-        build_regime_overview_snapshot(RoutingFakeClient(), cfg, force_refresh=False)
+
+def test_ma_chip_empty_frame():
+    assert ma_chip_text(pd.DataFrame(), (20,)) == "Moving averages: —"
+
+
+def test_ma_chip_nan_last():
+    df = pd.DataFrame(
+        {
+            "report_date": pd.date_range("2024-01-01", periods=5, freq="D"),
+            "close": list(range(4)) + [float("nan")],
+        }
+    )
+    assert ma_chip_text(df, (20,)) == "Moving averages: —"
+
+
+def test_no_volume_column_latest():
+    df = pd.DataFrame(
+        {
+            "report_date": pd.date_range("2020-01-01", periods=50, freq="D"),
+            "close": range(50),
+            "high": range(50),
+            "low": range(50),
+        }
+    )
+    st = compute_price_stats(df, (20,))
+    assert st.latest_volume is None
+
+
+def test_fifty_two_week_without_high_column():
+    df = pd.DataFrame(
+        {
+            "report_date": pd.date_range("2020-01-01", periods=400, freq="D"),
+            "close": range(400),
+            "low": range(400),
+            "volume": [1] * 400,
+        }
+    )
+    st = compute_price_stats(df, (20,))
+    assert st.high_52w is None
+
+
+def test_avg_volume_short_history():
+    df = pd.DataFrame(
+        {
+            "report_date": pd.date_range("2024-01-01", periods=10, freq="D"),
+            "close": range(10),
+            "high": range(10),
+            "low": range(10),
+            "volume": [1.0] * 10,
+        }
+    )
+    st = compute_price_stats(df, (20,))
+    assert st.avg_volume_30d is None
+    assert st.latest_volume == 1.0
+
+
+def test_build_price_figure_only_price_trace():
+    d = datetime(2024, 1, 1)
+    snap = BitcoinSnapshot(
+        symbol="BTC-USD",
+        as_of=d,
+        latest_price=2.0,
+        change_1d_pct=None,
+        change_1d_abs=None,
+        ma_summary_chip="x",
+        stats=PriceStats(
+            ret_7d=None,
+            ret_30d=None,
+            ret_90d=None,
+            ret_ytd=None,
+            ret_1y=None,
+            ath_price=None,
+            dist_from_ath_pct=None,
+            vol_30d_ann=None,
+            ma20_state=None,
+            ma50_state=None,
+            ma200_state=None,
+            drawdown_from_peak_pct=None,
+            high_52w=None,
+            low_52w=None,
+            avg_volume_30d=None,
+            latest_volume=None,
+        ),
+        chart=ChartSeries(
+            report_dates=[d, datetime(2024, 1, 2)],
+            close=[1.0, 2.0],
+            ma20=[None, None],
+            ma50=[None, None],
+            volume=[1.0, 2.0],
+        ),
+        range_key="7D",
+    )
+    fig = build_price_figure(snap)
+    assert len(fig.data) == 1
+
+
+def test_build_price_figure_ma20_without_ma50():
+    d = datetime(2024, 1, 1)
+    snap = BitcoinSnapshot(
+        symbol="BTC-USD",
+        as_of=d,
+        latest_price=2.0,
+        change_1d_pct=None,
+        change_1d_abs=None,
+        ma_summary_chip="x",
+        stats=PriceStats(
+            ret_7d=None,
+            ret_30d=None,
+            ret_90d=None,
+            ret_ytd=None,
+            ret_1y=None,
+            ath_price=None,
+            dist_from_ath_pct=None,
+            vol_30d_ann=None,
+            ma20_state=None,
+            ma50_state=None,
+            ma200_state=None,
+            drawdown_from_peak_pct=None,
+            high_52w=None,
+            low_52w=None,
+            avg_volume_30d=None,
+            latest_volume=None,
+        ),
+        chart=ChartSeries(
+            report_dates=[d, datetime(2024, 1, 2)],
+            close=[1.0, 2.0],
+            ma20=[1.2, 1.4],
+            ma50=[None, None],
+            volume=[1.0, 2.0],
+        ),
+        range_key="7D",
+    )
+    fig = build_price_figure(snap)
+    assert len(fig.data) == 2

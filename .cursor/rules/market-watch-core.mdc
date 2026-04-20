@@ -5,10 +5,10 @@ alwaysApply: true
 
 # market_watch (core)
 
-- **Stack:** Python 3.11+, Plotly Dash, `yfinance` (Yahoo Finance), file cache under repo `.cache/`.
-- **Entry:** `app/main.py` — routing callback, shared `CONFIG`, `CLIENT`, `CACHE`.
+- **Stack:** Python 3.11+, Plotly Dash, dash-mantine-components, `yfinance` (Yahoo Finance), file cache under repo `.cache/`.
+- **Entry:** `app/main.py` — single-page layout from `app/dashboard.py`, `CONFIG`, `CLIENT`, `CACHE`.
 - **Authoritative guides:** `AGENTS.md` and `docs/`.
-- **Prefer** extending `app/services/` and `app/data/yfinance_client.py` (`MarketDataClient`) over parallel fetch layers.
-- **Verification:** run `.venv/bin/pytest -q` before claiming tests pass.
+- **Data:** `app/data/bitcoin_client.py` (`BitcoinDataClient`) + `FileCache`; no multi-route product layer.
+- **Verification:** run `.venv/bin/pytest` before claiming tests pass.
 - **Scope:** keep diffs focused; match patterns in neighboring files.
 - **Secrets:** never commit `.env`, API keys, or `.cache/` contents.

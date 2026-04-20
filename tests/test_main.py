@@ -1,5 +1,3 @@
-"""Importing the app module exercises layout wiring and create_app (coverage for main)."""
-
 from __future__ import annotations
 
 

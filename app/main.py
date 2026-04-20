@@ -2,70 +2,52 @@ from __future__ import annotations
 
 import dash
 import dash_mantine_components as dmc
-from dash import Input, Output, State, dcc, html
+from dash import Input, Output, State
 
-from app.components.theme import THEME
-from app.components.ui import APP_CSS
 from app.config import ROOT_DIR, load_config
+from app.dashboard import create_app_layout, refresh_state_payload, run_dashboard_fetch
+from app.data.bitcoin_client import BitcoinDataClient
 from app.data.cache import FileCache
-from app.data.yfinance_client import CachePolicy, MarketDataClient
-from app.routing import dispatch_page_safe, refresh_state_payload
 
 CONFIG = load_config()
-CACHE = FileCache(ROOT_DIR / ".cache", default_ttl_seconds=int(CONFIG.cache.get("default_ttl_seconds", 3600)))
-CLIENT = MarketDataClient(
+CACHE = FileCache(ROOT_DIR / ".cache", default_ttl_seconds=int(CONFIG.cache.default_ttl_seconds))
+CLIENT = BitcoinDataClient(
     cache=CACHE,
-    policy=CachePolicy(
-        market_ttl_seconds=int(CONFIG.cache.get("market_ttl_seconds", 900)),
-        fundamentals_ttl_seconds=int(CONFIG.cache.get("fundamentals_ttl_seconds", 21600)),
-        news_ttl_seconds=int(CONFIG.cache.get("news_ttl_seconds", 1800)),
-    ),
+    symbol=CONFIG.dashboard.symbol,
+    market_ttl_seconds=int(CONFIG.cache.market_ttl_seconds),
+    moving_averages=tuple(CONFIG.dashboard.moving_averages),
 )
 
 
 def create_app() -> dash.Dash:
-    app = dash.Dash(__name__, suppress_callback_exceptions=True, title="KISS Terminal")
-    app.index_string = f"""
-<!DOCTYPE html>
-<html>
-    <head>
-        {{%metas%}}
-        <title>{{%title%}}</title>
-        {{%favicon%}}
-        {{%css%}}
-        <style>{APP_CSS}</style>
-    </head>
-    <body>
-        {{%app_entry%}}
-        <footer>
-            {{%config%}}
-            {{%scripts%}}
-            {{%renderer%}}
-        </footer>
-    </body>
-</html>
-"""
-    app.layout = dmc.MantineProvider(
-        theme=THEME,
-        children=[
-            dcc.Location(id="url"),
-            dcc.Store(id="refresh-state", data={"refresh": 0}),
-            dcc.Loading(
-                id="page-loading",
-                type="circle",
-                color="cyan",
-                children=html.Div(id="page-container"),
-            ),
-        ],
-    )
+    app = dash.Dash(__name__, suppress_callback_exceptions=True, title="Bitcoin Market Watch")
+    app.layout = create_app_layout(CONFIG)
 
     @app.callback(Output("refresh-state", "data"), Input("refresh-button", "n_clicks"), State("refresh-state", "data"))
     def refresh_data(n_clicks, current):  # pragma: no cover
         return refresh_state_payload(n_clicks, current)
 
-    @app.callback(Output("page-container", "children"), Input("url", "pathname"), Input("refresh-state", "data"))
-    def route(pathname: str, refresh_state: dict[str, int]):  # pragma: no cover
-        return dispatch_page_safe(pathname, refresh_state, dash.ctx.triggered_id, client=CLIENT, config=CONFIG)
+    @app.callback(
+        Output("error-banner-container", "children"),
+        Output("header-updated", "children"),
+        Output("history-store", "data"),
+        Output("page-container", "children"),
+        Input("url", "pathname"),
+        Input("range-select", "value"),
+        Input("refresh-state", "data"),
+        State("history-store", "data"),
+    )
+    def render_dashboard(pathname, range_value, refresh_state, hist_store):  # pragma: no cover
+        triggered_id = dash.ctx.triggered_id
+        banner, header_ts, store, body = run_dashboard_fetch(
+            triggered_id,
+            range_value,
+            refresh_state,
+            hist_store,
+            CLIENT,
+            CONFIG,
+        )
+        return banner, header_ts, store, body
 
     return app
 

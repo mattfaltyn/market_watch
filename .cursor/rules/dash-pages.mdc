@@ -1,12 +1,11 @@
 ---
-description: Dash pages — use shared UI components and visual-first patterns
-globs: app/pages/**/*.py
+description: Dash UI — single-page bitcoin dashboard
+globs: app/dashboard.py
 alwaysApply: false
 ---
 
-# Dash pages
+# Dash dashboard
 
-- Build layout with helpers from `app/components/ui.py` (`app_shell`, `section_panel`, charts, tables, cards).
-- New routes require a branch in `app/main.py` `route` callback and a renderer under `app/pages/`.
-- Keep copy and structure aligned with the regime-first product (Overview, Markets, Watchlist, Ticker).
-- Prefer passing snapshot/dataclass models from services rather than fetching inside page modules.
+- Build the single-page UI in `app/dashboard.py` (hero, chart, stat rail, supporting cards).
+- Use Mantine components and `dcc.Graph` with colors from `app/components/theme.py` / `assets/theme.css`.
+- Keep fetch and metric math out of layout helpers where possible (`app/metrics.py`, `app/data/bitcoin_client.py`).

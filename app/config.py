@@ -12,39 +12,23 @@ CONFIG_DIR = ROOT_DIR / "config"
 
 
 @dataclass(frozen=True)
+class DashboardConfig:
+    symbol: str
+    default_range: str
+    moving_averages: tuple[int, ...]
+    refresh_interval_seconds: int
+
+
+@dataclass(frozen=True)
+class CacheConfig:
+    default_ttl_seconds: int
+    market_ttl_seconds: int
+
+
+@dataclass(frozen=True)
 class AppConfig:
-    kiss: dict[str, Any]
-    chart_windows: dict[str, int]
-    cache: dict[str, Any]
-    alert_thresholds: dict[str, Any]
-
-    @property
-    def sleeves(self) -> dict[str, str]:
-        return self.kiss.get("sleeves", {})
-
-    @property
-    def base_weights(self) -> dict[str, float]:
-        return self.kiss.get("base_weights", {})
-
-    @property
-    def regime_rules(self) -> dict[str, dict[str, float]]:
-        return self.kiss.get("regime_rules", {})
-
-    @property
-    def vams_multipliers(self) -> dict[str, float]:
-        return self.kiss.get("vams_multipliers", {})
-
-    @property
-    def regime_inputs(self) -> dict[str, Any]:
-        return self.kiss.get("regime_inputs", {})
-
-    @property
-    def market_watch_symbols(self) -> list[str]:
-        return [str(symbol).upper() for symbol in self.kiss.get("market_watch_symbols", [])]
-
-    @property
-    def sleeve_symbols(self) -> list[str]:
-        return [str(symbol).upper() for symbol in self.sleeves.values()]
+    dashboard: DashboardConfig
+    cache: CacheConfig
 
 
 def _load_yaml(path: Path) -> dict[str, Any]:
@@ -57,9 +41,19 @@ def _load_yaml(path: Path) -> dict[str, Any]:
 
 def load_config() -> AppConfig:
     settings = _load_yaml(CONFIG_DIR / "settings.yaml")
+    dash = settings.get("dashboard") or {}
+    cache = settings.get("cache") or {}
+    ma_raw = dash.get("moving_averages") or (20, 50, 200)
+    moving_averages = tuple(int(x) for x in ma_raw)
     return AppConfig(
-        kiss=settings.get("kiss", {}),
-        chart_windows=settings.get("chart_windows", {}),
-        cache=settings.get("cache", {}),
-        alert_thresholds=settings.get("alert_thresholds", {}),
+        dashboard=DashboardConfig(
+            symbol=str(dash.get("symbol", "BTC-USD")),
+            default_range=str(dash.get("default_range", "90D")),
+            moving_averages=moving_averages,
+            refresh_interval_seconds=int(dash.get("refresh_interval_seconds", 0)),
+        ),
+        cache=CacheConfig(
+            default_ttl_seconds=int(cache.get("default_ttl_seconds", 900)),
+            market_ttl_seconds=int(cache.get("market_ttl_seconds", 900)),
+        ),
     )

@@ -1,0 +1,113 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap");
+
+:root {
+  --bg-primary: #1e1e44;
+  --bg-deep: #0f0f20;
+  --bg-secondary: #171733;
+  --surface-dark: #3f3c59;
+
+  --accent-primary: #fc9841;
+  --accent-secondary: #6da9e4;
+
+  --text-primary: #fdfdfd;
+  --text-secondary: #bfbfc8;
+  --text-muted: #898ba0;
+  --text-low: #676174;
+
+  --move-up: #6da9e4;
+  --move-down: #9a7a8a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Manrope", system-ui, sans-serif;
+  background: radial-gradient(120% 80% at 50% 0%, var(--bg-deep) 0%, var(--bg-secondary) 45%, var(--bg-primary) 100%);
+  color: var(--text-primary);
+}
+
+.mw-font-heading {
+  font-family: "Space Grotesk", "Manrope", system-ui, sans-serif;
+}
+
+.mw-shell {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding-bottom: 3rem;
+}
+
+.mw-header-row {
+  padding: 1.75rem 0 1rem;
+}
+
+.mw-hero-price {
+  font-size: clamp(2.25rem, 5vw, 3.25rem);
+  letter-spacing: -0.03em;
+}
+
+.mw-hero .mw-card {
+  border: 1px solid rgba(63, 60, 89, 0.55);
+  box-shadow: 0 18px 48px rgba(15, 15, 32, 0.45);
+}
+
+.mw-card {
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+
+.mw-stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(15, 15, 32, 0.35);
+}
+
+.mw-fade-in {
+  animation: mwFade 0.55s ease both;
+}
+
+.mw-delay-1 {
+  animation-delay: 0.08s;
+}
+.mw-delay-2 {
+  animation-delay: 0.14s;
+}
+.mw-delay-3 {
+  animation-delay: 0.2s;
+}
+
+@keyframes mwFade {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mw-range-pills .mantine-SegmentedControl-indicator {
+  transition: transform 0.2s ease;
+}
+
+.mw-range-toolbar {
+  border-bottom: 1px solid rgba(63, 60, 89, 0.35);
+  padding-bottom: 0.5rem;
+}
+
+.mw-stat-rail {
+  margin-top: 1.25rem;
+}
+
+.mw-support-row {
+  margin-top: 1.25rem;
+}
+
+@media (max-width: 768px) {
+  .mw-shell {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+}
