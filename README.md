@@ -108,7 +108,7 @@ The app does not rely on in-session app memory for these transitions.
 
 ## Routes
 
-- `/`: **Overview** — regime hero, quadrant, transitions, confirmation assets, indicator tape, and diagnostics (merged former Signals content).
+- `/`: **Overview** — regime hero, quadrant, transitions, confirmation assets, and indicator tape.
 - `/markets`: macro telemetry (benchmark tape, rates, curve, breadth, participation, S&P context). Old URL `/market-watch` redirects here.
 - `/watchlist`: watchlist snapshot table with links to tickers.
 - `/ticker/<symbol>`: regime intelligence drill-down for configured sleeves and supported symbols.
@@ -150,7 +150,7 @@ The config loader is defined in [app/config.py](app/config.py).
 - The primary product does not depend on app-session memory for “what changed”.
 - There is no persisted history, rebalance ledger, or trade execution integration in v1.
 - The macro regime and VAMS methodologies are approximate and explainable local proxies, not a claim of exact proprietary 42 Macro replication.
-- The UI keeps tabular audit surfaces available through custom dark tables, but the product is designed to be understood visually before reading detailed text.
+- The UI still uses custom dark tables where routes need them, but the overview now stays focused on the primary visual regime story instead of exposing low-priority diagnostic sections.
 
 ## Development
 

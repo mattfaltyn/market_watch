@@ -64,6 +64,8 @@ def test_delta_transition_strips_and_table():
     table = ui.make_table(df)
     assert table is not None
     assert getattr(table, "className", "") == "data-table-panel"
+    empty_table = ui.make_table(pd.DataFrame())
+    assert getattr(empty_table, "className", "") == "empty-state"
     assert ui.make_table(df, link_column="a", numeric_columns=["return_1d"]) is not None
     assert ui.make_table(df, column_formatters={"a": str}) is not None
 

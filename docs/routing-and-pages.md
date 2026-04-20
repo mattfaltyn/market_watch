@@ -4,7 +4,7 @@ Routing is implemented in the `route` callback in [`app/main.py`](../app/main.py
 
 | Path | Renderer | Notes |
 |------|----------|--------|
-| `/` (default) | [`render_regime_overview`](../app/pages/overview.py) | Merged regime + diagnostics: quadrant, transitions, indicator tape, confirmation cards, accordion for signals-style detail. Uses `build_regime_overview_snapshot`. |
+| `/` (default) | [`render_regime_overview`](../app/pages/overview.py) | Regime-first overview with hero summary, KPI rail, quadrant, transitions, indicator tape, and confirmation cards. Uses `build_regime_overview_snapshot`. |
 | `/markets` | [`render_markets`](../app/pages/markets.py) | Benchmark tape, rates (levels vs deltas), yield curve, breadth, participation, S&P context chart. |
 | `/watchlist` | [`render_watchlist`](../app/pages/watchlist.py) | Watchlist table with links to ticker drill-downs. |
 | `/ticker/<symbol>` | [`render_ticker_detail`](../app/pages/ticker_detail.py) | Price/MAs, valuation, quality/growth, alerts, news. Symbol must be in `market_watch_symbols` or sleeve symbols. |

@@ -4,7 +4,7 @@ Guidance for coding agents and contributors working on **market_watch**.
 
 ## Project summary
 
-Local-first **KISS regime and market-indicators** dashboard built with **Plotly Dash**, **dash-mantine-components**, and **`yfinance`** (Yahoo Finance). The home experience is regime-first (Overview: quadrant, drivers, transitions, confirmation assets, diagnostics accordion). Routes: `/`, `/markets`, `/watchlist`, `/ticker/<symbol>` (see [`docs/routing-and-pages.md`](docs/routing-and-pages.md)).
+Local-first **KISS regime and market-indicators** dashboard built with **Plotly Dash**, **dash-mantine-components**, and **`yfinance`** (Yahoo Finance). The home experience is regime-first (Overview: hero summary, quadrant, transitions, confirmation assets, indicator tape). Routes: `/`, `/markets`, `/watchlist`, `/ticker/<symbol>` (see [`docs/routing-and-pages.md`](docs/routing-and-pages.md)).
 
 ## Repository map
 

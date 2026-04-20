@@ -23,6 +23,22 @@ from app.pages.watchlist import render_watchlist
 from app.models import MarketSnapshot, MarketIndexSnapshot, RatesSnapshot
 
 
+def _collect_text(node) -> list[str]:
+    if node is None:
+        return []
+    if isinstance(node, (str, int, float)):
+        return [str(node)]
+    children = getattr(node, "children", None)
+    if children is None:
+        return []
+    if isinstance(children, (list, tuple)):
+        values: list[str] = []
+        for child in children:
+            values.extend(_collect_text(child))
+        return values
+    return _collect_text(children)
+
+
 def _regime_snapshot() -> RegimeOverviewSnapshot:
     regime = KissRegime(
         regime="goldilocks",
@@ -81,6 +97,10 @@ def test_regime_overview_renders():
     assert "overview-hero" in body.children[0].className
     assert "kpi-rail" in body.children[1].className
     assert "section-row-primary" in body.children[2].className
+    page_text = " ".join(_collect_text(layout))
+    assert "Regime history & strength" not in page_text
+    assert "Driver decomposition" not in page_text
+    assert "Raw tables" not in page_text
 
 
 def test_regime_overview_renders_with_empty_regime_history():

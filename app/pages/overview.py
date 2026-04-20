@@ -1,16 +1,12 @@
 from __future__ import annotations
 
-import pandas as pd
 import dash_mantine_components as dmc
 from dash import dcc, html
 
-from app.components.charts import make_line_chart
-from app.components.tables import make_table
 from app.components.ui import (
     app_shell,
     badge,
     benchmark_card,
-    heatstrip,
     macro_quadrant,
     metric_card,
     section_panel,
@@ -69,22 +65,6 @@ def _mover_chips(snapshot: RegimeOverviewSnapshot) -> list:
         badge(f"{symbol} {label} {change:+.1%}", "market" if change >= 0 else "negative")
         for symbol, label, change in notable
     ]
-
-
-def _history_frame(snapshot: RegimeOverviewSnapshot) -> pd.DataFrame:
-    return pd.DataFrame(
-        [
-            {
-                "report_date": point.date,
-                "growth_score": point.growth_score,
-                "inflation_score": point.inflation_score,
-                "regime_strength": point.regime_strength,
-            }
-            for point in snapshot.regime_history
-        ]
-    )
-
-
 def render_regime_overview(snapshot: RegimeOverviewSnapshot, errors: list[str], config: AppConfig):
     regime = snapshot.regime
     regime_transition = next((transition for transition in snapshot.transitions if transition.label == "Regime"), None)
@@ -119,8 +99,6 @@ def render_regime_overview(snapshot: RegimeOverviewSnapshot, errors: list[str], 
 
     growth_score = snapshot.regime_history[-1].growth_score if snapshot.regime_history else 0.0
     inflation_score = snapshot.regime_history[-1].inflation_score if snapshot.regime_history else 0.0
-    history_frame = _history_frame(snapshot)
-
     strength_pct = min(100.0, max(0.0, regime.regime_strength * 100.0))
     hero = html.Div(
         className="summary-hero overview-hero",
@@ -208,129 +186,6 @@ def render_regime_overview(snapshot: RegimeOverviewSnapshot, errors: list[str], 
             )
         )
 
-    growth_heat = heatstrip(
-        [regime.component_scores.get("equity_trend"), regime.component_scores.get("cyclical_defensive_ratio"), regime.component_scores.get("copper_gold_ratio")],
-        ["EQUITY", "CYCLICAL", "COPPER/GOLD"],
-    )
-    inflation_heat = heatstrip(
-        [regime.component_scores.get("oil_trend"), regime.component_scores.get("commodity_trend"), regime.component_scores.get("yield_trend")],
-        ["OIL", "COMMODITY", "10Y YIELD"],
-    )
-
-    proxy_rows = pd.DataFrame([{"Component": key, "Score": value} for key, value in regime.component_scores.items()])
-    confirmation_rows = pd.DataFrame(
-        [
-            {
-                "Symbol": c.symbol,
-                "Role": c.role_label,
-                "State": c.state.upper(),
-                "Score": c.score,
-                "Trend": c.trend,
-                "Momentum": c.momentum,
-                "Volatility": c.volatility,
-            }
-            for c in snapshot.confirmations
-        ]
-    )
-
-    diagnostics = dmc.Accordion(
-        multiple=True,
-        variant="separated",
-        radius="md",
-        children=[
-            dmc.AccordionItem(
-                [
-                    dmc.AccordionControl("Regime history & strength"),
-                    dmc.AccordionPanel(
-                        dmc.Stack(
-                            [
-                                html.Div(
-                                    className="section-row section-row-support",
-                                    children=[
-                                        section_panel(
-                                            "Regime History",
-                                            [
-                                                make_line_chart(
-                                                    history_frame,
-                                                    "report_date",
-                                                    ["growth_score", "inflation_score"],
-                                                    "Growth vs Inflation",
-                                                    semantic="market",
-                                                    x_axis_title="Date",
-                                                    y_axis_title="Score",
-                                                    y_reference=0.0,
-                                                    range_selector=True,
-                                                )
-                                            ],
-                                            subtitle="Historical score replay",
-                                            density="compact",
-                                        ),
-                                        section_panel(
-                                            "Regime Strength",
-                                            [
-                                                make_line_chart(
-                                                    history_frame,
-                                                    "report_date",
-                                                    ["regime_strength"],
-                                                    "Strength",
-                                                    semantic="rates",
-                                                    x_axis_title="Date",
-                                                    y_axis_title="Strength",
-                                                    y_reference=weak_thr,
-                                                    range_selector=True,
-                                                )
-                                            ],
-                                            subtitle="Mean |growth| and |inflation|; dashed line = weak threshold",
-                                            density="compact",
-                                        ),
-                                    ],
-                                ),
-                            ],
-                            gap="md",
-                        )
-                    ),
-                ],
-                value="diag-charts",
-            ),
-            dmc.AccordionItem(
-                [
-                    dmc.AccordionControl("Driver decomposition"),
-                    dmc.AccordionPanel(
-                        html.Div(
-                            className="section-row section-row-support",
-                            children=[
-                                section_panel("Growth Drivers", [growth_heat], subtitle="Regime inputs", density="compact"),
-                                section_panel("Inflation Drivers", [inflation_heat], subtitle="Regime inputs", density="compact"),
-                            ],
-                        )
-                    ),
-                ],
-                value="diag-decomp",
-            ),
-            dmc.AccordionItem(
-                [
-                    dmc.AccordionControl("Raw tables"),
-                    dmc.AccordionPanel(
-                        html.Div(
-                            className="section-row section-row-support",
-                            children=[
-                                section_panel("Regime Components", [make_table(proxy_rows, numeric_columns=["Score"])], subtitle="Proxy scores", density="compact", variant="table"),
-                                section_panel(
-                                    "Confirmation Table",
-                                    [make_table(confirmation_rows, numeric_columns=["Score", "Trend", "Momentum", "Volatility"])],
-                                    subtitle="VAMS diagnostics",
-                                    density="compact",
-                                    variant="table",
-                                ),
-                            ],
-                        )
-                    ),
-                ],
-                value="diag-tables",
-            ),
-        ],
-    )
-
     return app_shell(
         [
             hero,
@@ -386,7 +241,6 @@ def render_regime_overview(snapshot: RegimeOverviewSnapshot, errors: list[str], 
                     ),
                 ],
             ),
-            diagnostics,
         ],
         page_title="Regime, drivers, transitions, and confirming assets.",
         active_page="overview",
